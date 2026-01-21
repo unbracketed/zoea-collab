@@ -1,0 +1,4 @@
+- unify test file names
+- every package has README
+- test Docker
+- review Getting Started

@@ -1,6 +1,6 @@
 # zoea-vm
 
-VM creation, management, and deployment tools for Zoea CoWorking Toolkit.
+VM creation, management, and deployment tools for Zoea Collab: Agent Cowork Toolkit.
 
 ## Status
 

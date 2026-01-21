@@ -1,5 +1,5 @@
 """
-ASGI configuration for Zoea CoWorking Toolkit.
+ASGI configuration for Zoea Collab: Agent Cowork Toolkit.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 

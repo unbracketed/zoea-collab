@@ -1,6 +1,6 @@
 # zoea-studio
 
-The React frontend application for Zoea CoWorking Toolkit.
+The React frontend application for Zoea Collab: Agent Cowork Toolkit.
 
 ## Overview
 

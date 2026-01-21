@@ -1,6 +1,6 @@
 # zoea-core
 
-The backend API and CLI package for Zoea CoWorking Toolkit.
+The backend API and CLI package for Zoea Collab: Agent Cowork Toolkit.
 
 ## Overview
 

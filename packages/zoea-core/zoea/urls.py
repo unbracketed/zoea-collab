@@ -36,7 +36,7 @@ from workflows.api import router as workflows_router
 from events.api import router as events_router
 from zoea.system_api import router as system_router
 
-api = NinjaAPI(title="Zoea CoWorking Toolkit API", version="0.1.0")
+api = NinjaAPI(title="Zoea Collab: Agent Toolkit API", version="0.1.0")
 api.add_router("/", chat_router, tags=["chat"])
 api.add_router("/auth", auth_router, tags=["auth"])
 api.add_router("/clipboards", clipboards_router, tags=["clipboards"])

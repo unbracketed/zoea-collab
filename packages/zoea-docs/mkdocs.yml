@@ -147,7 +147,7 @@ nav:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/citrusgrovetechnology/zoea-coworking-toolkit
+      link: https://github.com/unbracketed/zoea-collab
 
   version:
     provider: mike

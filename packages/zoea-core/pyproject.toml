@@ -1,7 +1,7 @@
 [project]
 name = "zoea-core"
 version = "0.1.0"
-description = "Zoea CoWorking Toolkit - Backend API and CLI"
+description = "Zoea Collab: Agent Cowork Toolkit - Backend API and CLI"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "django>=5.1",

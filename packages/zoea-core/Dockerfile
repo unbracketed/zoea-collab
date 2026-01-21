@@ -1,4 +1,4 @@
-# Backend Dockerfile for Zoea CoWorking Toolkit
+# Backend Dockerfile for Zoea Collab: Agent Cowork Toolkit
 # Uses uv for fast, reliable Python package management
 
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim

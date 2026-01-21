@@ -1,4 +1,4 @@
-# Docker Compose for Zoea CoWorking Toolkit
+# Docker Compose for Zoea Collab: Agent Cowork Toolkit
 # Development configuration with hot reload
 # Supports multiple isolated instances via ZOEA_INSTANCE env var
 
