@@ -8,8 +8,8 @@ from asgiref.sync import sync_to_async
 from django.test import AsyncClient
 from pydantic import ValidationError
 
-from .agent_service import ChatAgentService
-from .schemas import ChatRequest, ChatResponse
+from chat.agent_service import ChatAgentService
+from chat.schemas import ChatRequest, ChatResponse
 
 
 class TestChatAgentService:

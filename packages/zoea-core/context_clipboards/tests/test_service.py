@@ -13,8 +13,8 @@ from documents.models import Document, YooptaDocument
 from projects.models import Project
 from workspaces.models import Workspace
 
-from .models import Clipboard, ClipboardDirection
-from .services import ClipboardService
+from context_clipboards.models import Clipboard, ClipboardDirection
+from context_clipboards.services import ClipboardService
 
 
 @pytest.mark.django_db
