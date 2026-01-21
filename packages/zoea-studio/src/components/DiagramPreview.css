@@ -1,0 +1,113 @@
+/**
+ * DiagramPreview Styles
+ *
+ * Styling for D2 diagram display using Tailwind CSS variables
+ */
+
+/* Main container for the React Flow diagram */
+.diagram-preview-container {
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background-color: var(--card);
+}
+
+/* Loading state container */
+.diagram-preview-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+/* Empty state container */
+.diagram-preview-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.diagram-preview-empty p {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Error state container (for D2DiagramDisplay) */
+.d2-diagram-error {
+  padding: 1rem;
+  background-color: var(--destructive);
+  border: 1px solid var(--destructive);
+  border-radius: var(--radius);
+  color: var(--destructive-foreground);
+}
+
+.d2-diagram-error strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+/* React Flow node wrapper - remove default padding */
+.react-flow__node {
+  padding: 0 !important;
+}
+
+/* React Flow attribution - optionally hide it */
+.react-flow__attribution {
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+/* React Flow controls styling */
+.react-flow__controls {
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.react-flow__controls-button {
+  background-color: var(--card);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.react-flow__controls-button:hover {
+  background-color: var(--accent);
+}
+
+/* Custom node styles - these match the inline styles but can be overridden */
+.container-node {
+  background-color: var(--muted);
+}
+
+.default-node {
+  background-color: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .diagram-preview-container,
+  .diagram-preview-loading,
+  .diagram-preview-empty {
+    /* Keep height: 100% on mobile to fill parent */
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 576px) {
+  .diagram-preview-container,
+  .diagram-preview-loading,
+  .diagram-preview-empty {
+    /* Keep height: 100% on mobile to fill parent */
+    min-height: 320px;
+  }
+}

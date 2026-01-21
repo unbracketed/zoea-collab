@@ -1,0 +1,3 @@
+packages:
+  - "packages/zoea-web-components"
+  - "packages/zoea-studio"

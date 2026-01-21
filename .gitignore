@@ -1,0 +1,73 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+*.egg
+.venv/
+venv/
+ENV/
+.uv-cache/
+.uv_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Build outputs
+dist/
+build/
+*.js.map
+site/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+playwright-report/
+test-results/
+
+# Turbo
+.turbo/
+
+# Database
+*.sqlite3
+db.sqlite3
+
+# Media
+media/
+
+# Secrets
+*.pem
+*.key
+credentials.json
+
+# OS
+Thumbs.db

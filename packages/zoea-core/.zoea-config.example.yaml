@@ -1,0 +1,10 @@
+# Zoea CLI Configuration Example
+# Copy this file to ~/.zoea/config.yaml to customize CLI behavior
+
+# Default organization for CLI commands
+# If set, all commands will filter by this organization unless --org is specified
+default_organization: "Team Zoea"
+
+# Verbose output by default
+# When true, all list commands will show detailed information
+verbose: false

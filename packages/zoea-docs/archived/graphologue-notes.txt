@@ -1,0 +1,113 @@
+Here’s the end-to-end pipeline in Graphologue (commit you cloned) showing every stage from the user’s
+  question to the React Flow geometry. I’ve highlighted spots that often get overlooked—these nuances are
+  what keep Graphologue’s diagrams consistent.
+
+  ———
+
+  1. User input → streaming LLM response
+
+  - The Question component (src/components/Question.tsx:48-720) owns the textarea and the “Ask” button.
+    When the user submits, handleAskStream resets the local state, builds the long “initialAsk” prompt
+    (src/utils/prompts.ts:14-205), and calls streamOpenAICompletion with GPT‑4 while streaming tokens
+    (Question.tsx:540-612 + src/utils/openAI.ts:58-150).
+  - Graphologue insists the LLM annotate entities as [noun phrase ($N#)] and relationships as [verb phrase
+    ($H,$Nx,$Ny;…)]. Those instructions (with full examples) are in predefinedPrompts.initialAsk, and the
+    streaming response is fed chunk-by-chunk into handleStreamRawAnswer (Question.tsx:375-515).
+
+  2. Segmenting the answer into “answer objects”
+
+  - handleStreamRawAnswer keeps a running answer string plus an array of AnswerObjects (paragraph-sized
+    units defined in src/App.tsx:63-83). Every time the stream emits a newline, it closes the current
+    paragraph, creates a new AnswerObject with its own originText, and immediately kicks off background
+    parsing for the previous paragraph (Question.tsx:418-488).
+  - This segmentation is important: Graphologue treats each paragraph as an independent “diagram block” so
+    you can highlight, hide, or summarize them independently later.
+
+  3. Parsing entities/relationships while the stream arrives
+
+  - As soon as new text lands, handleUpdateRelationshipEntities runs a regex pass over the most recent
+    paragraph to keep originText.nodeEntities and .edgeEntities up to date (Question.tsx:205-247). The
+    regexes live in src/utils/responseProcessing.ts:12-157.
+      - parseNodes gathers every [label ($N#)], merges repeated IDs, and stores all occurrences plus
+        source offsets so React Flow nodes can link back to sentences later.
+      - parseEdges splits relationship annotations into EdgeEntity records, capturing saliency ($H/$L) and
+        the original snippet.
+  - When a paragraph finishes, handleParsingCompleteAnswerObject prompts the LLM twice more: once to
+    produce a concise annotated summary, once to produce a Markdown slide. Both responses get parsed with
+    the same regexes so each AnswerObject has dual sets of nodes/edges (Question.tsx:214-364). This means
+    a user can flip a block to “summary view” without recomputing geometry.
+
+  4. Optional correction / parsing helpers
+
+  - SentenceParser (src/utils/sentenceParser.ts) exists to parse individual sentences (a now-deprecated
+    path) and to support future self-correction passes (Question.tsx:136-206). Although it’s mostly
+    dormant, the structure shows Graphologue planned for per-sentence re-prompts if relationships look
+    suspicious.
+
+  5. Aggregating the data for diagrams
+
+  - The Answer view (src/components/Answer.tsx:1-220) renders one AnswerBlockItem per paragraph (plus an
+    optional merged diagram). Each block can display the original text, the summary, or the slide text,
+    and it can be highlighted/hidden independently.
+  - Before rendering React Flow, AnswerBlockItem gathers the relevant entities and relationships:
+      - If you’re in “merged” mode, it calls mergeNodeEntities / mergeEdgeEntities across all visible
+        AnswerObjects (src/utils/responseProcessing.ts:280-322).
+      - Otherwise it picks either originText or summary entities for that block.
+      - Collapsed nodes, saliency filters, and highlight/hidden states from QuestionAndAnswerSynced are
+        applied here.
+
+  6. Building geometry with Dagre before React Flow sees anything
+
+  - answerObjectsToReactFlowObject (src/utils/graphToFlowObject.ts:53-260) is the heart of the diagram
+    pipeline:
+      1. Split multi-target relationships into pseudo nodes so React Flow can render fan-out edges cleanly
+         (lines 88‑173). Each pseudo node uses the relationship label as its display text and is colored
+         differently so users can tell it’s synthetic.
+      2. Ensure every node mentioned by an edge exists; if not, insert a placeholder node whose label is
+         "..." but whose originTexts reference the offending sentence (lines 175‑209).
+      3. Apply filters: hidden/collapsed node propagation, saliency (high vs. low), duplicate edge
+         pruning, and prevention of degenerate $N1 → $N1 edges (lines 211‑259).
+      4. Call constructGraph with a shared dagre.graphlib.Graph instance (held in AnswerBlockItem
+         so positions stay stable between renders). constructGraph sets the layout parameters
+         (rankdir: 'LR', ranksep: 90, nodesep: 15) and computes x/y by measuring each node label via
+         hardcodedNodeWidthEstimation (src/utils/graphConstruct.ts:42-122 plus src/componentsFlow/Node.tsx
+         for sizing constants).
+      5. Convert the Dagre output back into React Flow nodes/edges using the custom factories
+         getNewCustomNode and getNewEdge. These embed each node’s origin ranges, label, pseudo flag, and
+         unique handle IDs so the React Flow layer can support inline editing, tooltip source snippets,
+         and custom edge styles (lines 262‑342).
+
+  7. Updating React Flow and managing the camera
+
+  - Each AnswerBlockItem holds its own ReactFlowProvider. Once answerObjectsToReactFlowObject produces the
+    geometry, the component calls setNodes/setEdges from useReactFlow (src/components/Answer.tsx:398-527).
+  - To keep the camera smooth, the component tracks “node snippets” (id, label, position, size) before/
+    after each update. Any change queues a ViewFittingJob that either calls fitView or computes a minimal
+    pan to keep the updated nodes inside the viewport (Answer.tsx:460-520). This job queue prevents
+    jarring jumps when the model streams new nodes into an existing graph.
+  - Finally, ReactFlowComponent (src/componentsFlow/ReactFlowComponent.tsx) renders the canvas with custom
+    node/edge types, context menus, “magic toolbox” widgets, and integrates the undo/redo stack supplied
+    by src/utils/timeMachine.ts.
+
+  ———
+
+  Key nuances worth replicating
+
+  1. Paragraph-aware state: Graphologue’s “answer objects” let it keep multiple diagrams per response,
+     each with its own node/edge set, summary, and collapsed state. Skipping this makes it difficult to
+     hide/highlight or compare summaries vs. originals.
+  2. Real-time parsing & corrective loops: Relationships are parsed during streaming so the UI can update
+     live. Finished paragraphs get a second parsing pass (summary + slide) and can be corrected before
+     being marked complete.
+  3. Rich metadata on nodes/edges: Every NodeEntity keeps all occurrences, origin ranges, and original
+     markup. This feeds tooltips, highlight interactions, and copy-to-text features later.
+  4. Edge splitting + pseudo nodes: Multi-target relationships aren’t mapped directly; they’re routed
+     through pseudo nodes so React Flow can display them linearly. That conversion is coupled with
+     saliency and collapse filters.
+  5. Stable Dagre graph + camera choreography: Rather than letting React Flow auto-layout, Graphologue
+     precomputes geometry with Dagre, keeps a persistent graphlib.Graph, and animates the viewport toward
+     changes. This is why diagrams feel stable even while the LLM streams text.
+
+  If our implementation is missing any of the above—especially the per-paragraph data model, the immediate
+  regex parsing, or the Dagre-based pre-layout—we’ll see diverging behavior from the original Graphologue
+  experience.

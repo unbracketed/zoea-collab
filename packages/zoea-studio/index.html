@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Zoea Studio</title>
+    <script>
+      // Set theme immediately to prevent flash
+      (function() {
+        const getStoredTheme = () => localStorage.getItem('theme');
+        const getPreferredTheme = () => {
+          const storedTheme = getStoredTheme();
+          if (storedTheme) {
+            return storedTheme;
+          }
+          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        };
+
+        const setTheme = (theme) => {
+          if (theme === 'auto') {
+            document.documentElement.setAttribute('data-bs-theme',
+              window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+            );
+          } else {
+            document.documentElement.setAttribute('data-bs-theme', theme);
+          }
+        };
+
+        setTheme(getPreferredTheme());
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

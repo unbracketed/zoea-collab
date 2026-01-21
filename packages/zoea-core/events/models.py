@@ -1,0 +1,299 @@
+"""
+Event trigger models for workflow automation.
+
+Provides event-based triggers that execute Agent Skills when events occur
+(e.g., email received, document created).
+"""
+
+import uuid
+
+from django.contrib.auth import get_user_model
+from django.db import models
+
+from accounts.managers import OrganizationScopedQuerySet
+
+User = get_user_model()
+
+
+class EventType(models.TextChoices):
+    """Supported event types for triggers."""
+
+    EMAIL_RECEIVED = "email_received", "Email Received"
+    DOCUMENT_CREATED = "document_created", "Document Created"
+    DOCUMENT_UPDATED = "document_updated", "Document Updated"
+    DOCUMENTS_SELECTED = "documents_selected", "Documents Selected"
+
+
+class EventTrigger(models.Model):
+    """
+    Configuration for event-based skill execution.
+
+    When an event of the specified type occurs, the configured skills are
+    loaded and executed to process the event data.
+    """
+
+    # Organization relationship (required for multi-tenancy)
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="event_triggers",
+        help_text="The organization that owns this trigger",
+    )
+
+    # Optional project scope (None = org-wide trigger)
+    project = models.ForeignKey(
+        "projects.Project",
+        on_delete=models.CASCADE,
+        related_name="event_triggers",
+        null=True,
+        blank=True,
+        help_text="Optional project scope. If not set, trigger applies to entire organization.",
+    )
+
+    # Trigger configuration
+    name = models.CharField(
+        max_length=255,
+        help_text="Human-readable name for this trigger",
+    )
+    description = models.TextField(
+        blank=True,
+        help_text="Optional description of what this trigger does",
+    )
+    event_type = models.CharField(
+        max_length=50,
+        choices=EventType.choices,
+        db_index=True,
+        help_text="Type of event that activates this trigger",
+    )
+
+    # Skills to execute (list of skill names from SkillRegistry)
+    skills = models.JSONField(
+        default=list,
+        help_text="List of skill names to execute when triggered (e.g., ['extract-data', 'send-webhook'])",
+    )
+
+    # Execution configuration
+    is_enabled = models.BooleanField(
+        default=True,
+        db_index=True,
+        help_text="Whether this trigger is active",
+    )
+    run_async = models.BooleanField(
+        default=True,
+        help_text="Execute in background task (recommended for production)",
+    )
+
+    # Optional filters for more specific event matching
+    filters = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Optional filters for event matching (e.g., {'document_type': 'markdown'})",
+    )
+
+    # Additional configuration passed to SkillsAgentService
+    agent_config = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Additional configuration for the agent (e.g., custom instructions, max_steps)",
+    )
+
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="created_event_triggers",
+        help_text="User who created this trigger",
+    )
+
+    # Use organization-scoped queryset manager
+    objects = OrganizationScopedQuerySet.as_manager()
+
+    class Meta:
+        verbose_name = "Event Trigger"
+        verbose_name_plural = "Event Triggers"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["organization", "event_type", "is_enabled"]),
+            models.Index(fields=["project", "event_type", "is_enabled"]),
+        ]
+
+    def __str__(self):
+        scope = self.project.name if self.project else "org-wide"
+        return f"{self.name} ({self.event_type}) - {scope}"
+
+    @property
+    def skill_count(self) -> int:
+        """Return the number of skills configured for this trigger."""
+        return len(self.skills) if self.skills else 0
+
+
+class EventTriggerRun(models.Model):
+    """
+    Tracks individual executions of event triggers.
+
+    Records inputs, outputs, timing, and status for each trigger execution,
+    enabling history viewing and debugging.
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        RUNNING = "running", "Running"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+        SKIPPED = "skipped", "Skipped"
+
+    # Organization relationship (required for multi-tenancy)
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="event_trigger_runs",
+        help_text="The organization that owns this run",
+    )
+
+    # Trigger reference
+    trigger = models.ForeignKey(
+        EventTrigger,
+        on_delete=models.CASCADE,
+        related_name="runs",
+        help_text="The trigger that was executed",
+    )
+
+    # Unique run identifier
+    run_id = models.CharField(
+        max_length=36,
+        unique=True,
+        default=uuid.uuid4,
+        help_text="Unique identifier for this execution run",
+    )
+
+    # Source reference (generic to support multiple event sources)
+    source_type = models.CharField(
+        max_length=50,
+        help_text="Type of source that triggered this run (e.g., 'email_message', 'document')",
+    )
+    source_id = models.PositiveIntegerField(
+        help_text="ID of the source object that triggered this run",
+    )
+
+    # Execution status
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+        help_text="Current execution status",
+    )
+
+    # Input/Output data
+    inputs = models.JSONField(
+        default=dict,
+        help_text="Event data passed to the skills",
+    )
+    outputs = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Output results from skill execution",
+    )
+    error = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Error message if execution failed",
+    )
+
+    # Agent telemetry
+    telemetry = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Agent telemetry (token usage, timing, steps)",
+    )
+
+    # Timing
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When execution actually started",
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When execution completed (success or failure)",
+    )
+
+    # Django-Q2 task tracking
+    task_id = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Django-Q2 task ID for background execution",
+    )
+
+    # Artifacts collection for outputs
+    artifacts = models.ForeignKey(
+        "documents.DocumentCollection",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="event_trigger_runs",
+        help_text="Collection of artifacts produced by this trigger run",
+    )
+
+    # Use organization-scoped queryset manager
+    objects = OrganizationScopedQuerySet.as_manager()
+
+    class Meta:
+        verbose_name = "Event Trigger Run"
+        verbose_name_plural = "Event Trigger Runs"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["organization", "trigger"]),
+            models.Index(fields=["organization", "status"]),
+            models.Index(fields=["source_type", "source_id"]),
+        ]
+
+    def __str__(self):
+        return f"{self.trigger.name} run {self.run_id[:8]} ({self.status})"
+
+    @property
+    def duration_seconds(self) -> float | None:
+        """Calculate execution duration in seconds."""
+        if self.started_at and self.completed_at:
+            return (self.completed_at - self.started_at).total_seconds()
+        return None
+
+    def get_or_create_artifacts(self):
+        """
+        Get or lazily create the artifacts collection for this trigger run.
+
+        Returns:
+            DocumentCollection: The artifacts collection for this run.
+        """
+        if self.artifacts_id:
+            return self.artifacts
+
+        from documents.models import CollectionType, DocumentCollection
+
+        # Get workspace from trigger's project if available
+        workspace = None
+        if self.trigger.project:
+            from workspaces.models import Workspace
+
+            workspace = Workspace.objects.filter(
+                project=self.trigger.project
+            ).first()
+
+        collection = DocumentCollection.objects.create(
+            organization=self.organization,
+            workspace=workspace,
+            collection_type=CollectionType.ARTIFACT,
+            name=f"Trigger: {self.trigger.name} ({self.run_id[:8]})",
+            created_by=self.trigger.created_by,
+        )
+        self.artifacts = collection
+        self.save(update_fields=["artifacts"])
+        return collection

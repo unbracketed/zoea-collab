@@ -1,0 +1,101 @@
+[project]
+name = "zoea-core"
+version = "0.1.0"
+description = "Zoea CoWorking Toolkit - Backend API and CLI"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "django>=5.1",
+    "django-ninja>=1.3.0",
+    "django-cors-headers>=4.6.0",
+    "psycopg2-binary>=2.9.9",
+    "openai>=1.0.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.9.0",
+    "django-organizations>=2.5.0",
+    "django-model-utils>=5.0.0",
+    "django-mptt>=0.17.0",
+    "pillow>=11.0.0",
+    "google-genai>=0.3.0",
+    "pocketflow>=0.0.3",
+    "pygithub>=2.8.1",
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0",
+    "gunicorn>=23.0.0",
+    "smolagents[litellm]>=1.14.0",
+    "whitenoise>=6.8.0",
+    "dj-database-url>=2.3.0",
+    "django-q2>=1.9.0",
+    "django-allauth>=65.13.1",
+    "ddgs>=9.9.3",
+    "uvicorn>=0.38.0",
+    "markdownify>=0.14.1",
+    "pymupdf>=1.25.0",
+    "chromadb>=1.3.7",
+    "python-docx>=1.1.0",
+    "openpyxl>=3.1.0",
+    "starlette>=0.51.0",
+    "aiofiles>=25.1.0",
+]
+
+[project.scripts]
+zoea = "cli.cli:app"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "zoea.settings_test"
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-django>=4.9.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.7.0",
+    "mkdocs-material>=9.5.0",
+    "pymdown-extensions>=10.0",
+    "psycopg[binary]>=3.3.2",
+    "playwright>=1.57.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    "cli",
+    "cli.commands",
+    "cli.utils",
+    "accounts",
+    "chat",
+    "context_clipboards",
+    "document_rag",
+    "document_rag.tools",
+    "documents",
+    "flows",
+    "projects",
+    "sources",
+    "transformations",
+    "workflows",
+    "workspaces",
+    "zoea",
+]
+
+[tool.uv]
+package = true
+prerelease = "allow"

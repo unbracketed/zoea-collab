@@ -1,0 +1,17 @@
+INPUTS:
+  - name: issue_number
+    type: PositiveInt
+    description: GitHub issue number to create implementation plan for
+
+OUTPUTS:
+  - name: Issue {issue_number} Implementation Spec
+    type: MarkdownDocument
+    target: SDLC/Specs/Issue-{issue_number}
+
+SERVICES:
+  - name: PyGithubInterface
+    ctxref: gh
+    config:
+      repo: unbracketed/zoea-collab
+  - name: AIService
+    ctxref: ai

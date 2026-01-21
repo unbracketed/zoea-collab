@@ -1,0 +1,157 @@
+# Zoea Collab Documentation Configuration
+
+site_name: Zoea Collab Documentation
+site_description: Agent Cowork Toolkit - AI-powered productivity suite with chat agents and document management
+site_author: Zoea Team
+site_url: https://unbracketed.github.io/zoea-collab/
+
+# Repository
+repo_name: zoea-collab
+repo_url: https://github.com/unbracketed/zoea-collab
+edit_uri: edit/main/packages/zoea-docs/docs/
+
+# Copyright
+copyright: Copyright &copy; 2025 Zoea
+
+# Configuration
+theme:
+  name: material
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+  features:
+    - navigation.instant      # Instant loading
+    - navigation.tracking     # Anchor tracking
+    - navigation.tabs         # Top-level sections as tabs
+    - navigation.sections     # Sections in navigation
+    - navigation.expand       # Expand navigation by default
+    - navigation.top          # Back to top button
+    - search.suggest          # Search suggestions
+    - search.highlight        # Highlight search terms
+    - content.code.copy       # Copy button in code blocks
+    - content.code.annotate   # Code annotations
+
+# Plugins
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+
+# Extensions
+markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - tables
+
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Navigation structure
+nav:
+  - Home: index.md
+
+  - Getting Started:
+    - getting-started/index.md
+    - Installation: getting-started/installation.md
+    - Development Setup: getting-started/development.md
+    - Local User Initialization: getting-started/initialization.md
+
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Multi-Tenant System: architecture/multi-tenant.md
+    - Frontend Architecture: architecture/frontend.md
+    - Backend Architecture: architecture/backend.md
+    - LLM Providers & Agents: architecture/llm-agents.md
+    - Document RAG System: architecture/document-rag.md
+
+  - Packages:
+    - zoea-core: packages/core.md
+    - zoea-web-components: packages/web-components.md
+    - zoea-studio: packages/studio.md
+
+  - Features:
+    - Authentication: features/authentication.md
+    - Chat Logging: features/chat-logging.md
+    - Conversations: features/conversations.md
+    - Content Transformations: features/transformations.md
+    - Document RAG Chat: features/document-rag.md
+    - Email Gateway: features/email-gateway.md
+    - Gemini File Search: features/gemini-search.md
+    - Clipboard System: features/clipboard.md
+    - Rich Text Documents: features/rich-text-documents.md
+    - Command-Line Interface: features/cli.md
+    - Workflows: features/workflows.md
+
+  - Development:
+    - Testing Guide: development/testing.md
+    - React Patterns: development/react-patterns.md
+    - Authentication Setup: development/authentication-setup.md
+    - Worktree Development: development/worktree-development.md
+    - API Reference: development/api-reference.md
+
+  - Reference:
+    - Technology Stack: reference/technology-stack.md
+    - Configuration: reference/configuration.md
+    - Common Workflows: reference/common-workflows.md
+
+# Additional configuration
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/citrusgrovetechnology/zoea-coworking-toolkit
+
+  version:
+    provider: mike
+
+# Build directory
+docs_dir: docs
+site_dir: site

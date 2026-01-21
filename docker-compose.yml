@@ -1,0 +1,160 @@
+# Docker Compose for Zoea CoWorking Toolkit
+# Development configuration with hot reload
+# Supports multiple isolated instances via ZOEA_INSTANCE env var
+
+services:
+  backend:
+    container_name: zoea-${ZOEA_INSTANCE:-main}-backend
+    build:
+      context: ./packages/zoea-core
+      dockerfile: Dockerfile
+    ports:
+      - "${ZOEA_BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./packages/zoea-core:/app
+      - ./skills:/app/skills:ro
+      - backend-venv:/app/.venv
+      - backend-data:/app/data
+      - backend-media:/app/media
+      - backend-chromadb:/app/chromadb
+    environment:
+      # Django Core
+      - DEBUG=${DEBUG:-True}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      # AI Providers
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_CHAT_MODEL_ID=${OPENAI_CHAT_MODEL_ID:-gpt-4o-mini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL_ID=${GEMINI_MODEL_ID:-gemini-2.5-flash}
+      # LLM Configuration
+      - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-openai}
+      - DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL:-gpt-4o-mini}
+      - LOCAL_MODEL_ENDPOINT=${LOCAL_MODEL_ENDPOINT:-}
+      # File Search / RAG
+      - FILE_SEARCH_BACKEND=${FILE_SEARCH_BACKEND:-chromadb}
+      - CHROMADB_PERSIST_DIRECTORY=/app/chromadb
+      - FILE_SEARCH_MAX_TEXT_BYTES=${FILE_SEARCH_MAX_TEXT_BYTES:-2097152}
+      # Image Captioning
+      - IMAGE_CAPTION_PROVIDER=${IMAGE_CAPTION_PROVIDER:-openai}
+      - IMAGE_CAPTION_MODEL=${IMAGE_CAPTION_MODEL:-gpt-4o}
+      - IMAGE_CAPTION_PROMPT=${IMAGE_CAPTION_PROMPT:-}
+      # Database
+      - DATABASE_URL=${DATABASE_URL:-}
+      # Application
+      - ZOEA_INSTANCE=${ZOEA_INSTANCE:-main}
+      - ZOEA_DEFAULT_THEME=${ZOEA_DEFAULT_THEME:-ocean}
+      - ZOEA_SKILLS_DIRS=/app/skills
+      # Import Limits
+      - ZOEA_IMPORT_MAX_FILE_SIZE_BYTES=${ZOEA_IMPORT_MAX_FILE_SIZE_BYTES:-52428800}
+      - ZOEA_IMPORT_MAX_TOTAL_SIZE_BYTES=${ZOEA_IMPORT_MAX_TOTAL_SIZE_BYTES:-10737418240}
+      - ZOEA_IMPORT_MAX_FILE_COUNT=${ZOEA_IMPORT_MAX_FILE_COUNT:-100000}
+      - ZOEA_IMPORT_MAX_DEPTH=${ZOEA_IMPORT_MAX_DEPTH:-10}
+      # CORS
+      - FRONTEND_URL=${FRONTEND_URL:-}
+    command: uv run python manage.py runserver 0.0.0.0:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+
+  worker:
+    container_name: zoea-${ZOEA_INSTANCE:-main}-worker
+    build:
+      context: ./packages/zoea-core
+      dockerfile: Dockerfile
+    volumes:
+      - ./packages/zoea-core:/app
+      - ./skills:/app/skills:ro
+      - backend-venv:/app/.venv
+      - backend-data:/app/data
+      - backend-media:/app/media
+      - backend-chromadb:/app/chromadb
+    environment:
+      # Django Core
+      - DEBUG=${DEBUG:-True}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-change-in-production}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      # AI Providers
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_CHAT_MODEL_ID=${OPENAI_CHAT_MODEL_ID:-gpt-4o-mini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL_ID=${GEMINI_MODEL_ID:-gemini-2.5-flash}
+      # LLM Configuration
+      - DEFAULT_LLM_PROVIDER=${DEFAULT_LLM_PROVIDER:-openai}
+      - DEFAULT_LLM_MODEL=${DEFAULT_LLM_MODEL:-gpt-4o-mini}
+      - LOCAL_MODEL_ENDPOINT=${LOCAL_MODEL_ENDPOINT:-}
+      # File Search / RAG
+      - FILE_SEARCH_BACKEND=${FILE_SEARCH_BACKEND:-chromadb}
+      - CHROMADB_PERSIST_DIRECTORY=/app/chromadb
+      - FILE_SEARCH_MAX_TEXT_BYTES=${FILE_SEARCH_MAX_TEXT_BYTES:-2097152}
+      # Image Captioning
+      - IMAGE_CAPTION_PROVIDER=${IMAGE_CAPTION_PROVIDER:-openai}
+      - IMAGE_CAPTION_MODEL=${IMAGE_CAPTION_MODEL:-gpt-4o}
+      - IMAGE_CAPTION_PROMPT=${IMAGE_CAPTION_PROMPT:-}
+      # Database
+      - DATABASE_URL=${DATABASE_URL:-}
+      # Application
+      - ZOEA_INSTANCE=${ZOEA_INSTANCE:-main}
+      - ZOEA_SKILLS_DIRS=/app/skills
+    command: uv run python manage.py qcluster
+    depends_on:
+      backend:
+        condition: service_healthy
+    profiles:
+      - worker
+
+  frontend:
+    container_name: zoea-${ZOEA_INSTANCE:-main}-frontend
+    build:
+      context: ./packages/zoea-studio
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "${ZOEA_FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./packages/zoea-studio:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:${ZOEA_BACKEND_PORT:-8000}}
+      - ZOEA_INSTANCE=${ZOEA_INSTANCE:-main}
+    depends_on:
+      - backend
+
+  # Optional PostgreSQL database (enable with: docker compose --profile postgres up)
+  db:
+    container_name: zoea-${ZOEA_INSTANCE:-main}-db
+    image: postgres:16-alpine
+    ports:
+      - "${ZOEA_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-zoea}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-zoea}
+      - POSTGRES_DB=${POSTGRES_DB:-zoea}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zoea} -d ${POSTGRES_DB:-zoea}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - postgres
+
+volumes:
+  backend-venv:
+    name: zoea-${ZOEA_INSTANCE:-main}-backend-venv
+  backend-data:
+    name: zoea-${ZOEA_INSTANCE:-main}-backend-data
+  backend-media:
+    name: zoea-${ZOEA_INSTANCE:-main}-backend-media
+  backend-chromadb:
+    name: zoea-${ZOEA_INSTANCE:-main}-backend-chromadb
+  postgres-data:
+    name: zoea-${ZOEA_INSTANCE:-main}-postgres-data

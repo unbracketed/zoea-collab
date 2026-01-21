@@ -1,0 +1,222 @@
+[tools]
+python = "3.12.8"
+node = "24"
+
+[env]
+_.file = ".env"
+
+# =============================================================================
+# Installation Tasks
+# =============================================================================
+
+[tasks.install]
+description = "Install all dependencies"
+run = [
+    "pnpm install",
+    "cd packages/zoea-core && uv sync",
+    "cd packages/zoea-docs && uv venv && uv pip install mkdocs-material pymdown-extensions",
+]
+
+[tasks."install:js"]
+description = "Install JavaScript dependencies (pnpm)"
+run = "pnpm install"
+
+[tasks."install:python"]
+description = "Install Python dependencies (zoea-core)"
+run = "cd packages/zoea-core && uv sync"
+
+# =============================================================================
+# Development Tasks
+# =============================================================================
+
+[tasks.dev]
+description = "Start all development servers"
+run = [
+    "mise run dev-backend &",
+    "mise run dev-frontend &",
+    "wait",
+]
+
+[tasks.dev-backend]
+description = "Run backend ASGI server (Django via uvicorn)"
+run = "cd packages/zoea-core && uv run uvicorn zoea.asgi:app --reload --host 0.0.0.0 --port ${ZOEA_BACKEND_PORT:-8000}"
+
+[tasks.dev-backend-django]
+description = "Run Django development server"
+run = "cd packages/zoea-core && uv run python manage.py runserver ${ZOEA_BACKEND_PORT:-8000}"
+
+[tasks.dev-frontend]
+description = "Run Vite development server"
+run = "cd packages/zoea-studio && pnpm dev"
+
+[tasks.dev-web-components]
+description = "Run web-components in watch mode"
+run = "cd packages/zoea-web-components && pnpm dev"
+
+# =============================================================================
+# Build Tasks
+# =============================================================================
+
+[tasks.build]
+description = "Build all packages"
+run = "pnpm build"
+
+[tasks."build:web-components"]
+description = "Build web-components package"
+run = "cd packages/zoea-web-components && pnpm build"
+
+[tasks."build:studio"]
+description = "Build zoea-studio frontend"
+run = "cd packages/zoea-studio && pnpm build"
+
+# =============================================================================
+# Test Tasks
+# =============================================================================
+
+[tasks.test]
+description = "Run all tests"
+run = [
+    "cd packages/zoea-core && uv run pytest",
+    "cd packages/zoea-studio && pnpm test",
+]
+
+[tasks.test-backend]
+description = "Run backend pytest tests"
+run = "cd packages/zoea-core && uv run pytest"
+
+[tasks.test-failed]
+description = "Rerun only tests that failed in the last run"
+run = "cd packages/zoea-core && uv run pytest --lf"
+
+[tasks.test-frontend]
+description = "Run frontend vitest tests"
+run = "cd packages/zoea-studio && pnpm test"
+
+[tasks.test-e2e]
+description = "Run Playwright E2E tests"
+run = "cd packages/zoea-studio && pnpm test:e2e"
+
+[tasks.test-e2e-ui]
+description = "Run Playwright E2E tests with UI"
+run = "cd packages/zoea-studio && pnpm test:e2e:ui"
+
+[tasks.test-e2e-headed]
+description = "Run Playwright E2E tests in headed mode"
+run = "cd packages/zoea-studio && pnpm test:e2e:headed"
+
+# =============================================================================
+# Linting & Formatting Tasks
+# =============================================================================
+
+[tasks.lint]
+description = "Run all linters"
+run = [
+    "cd packages/zoea-core && uv run ruff check .",
+    "cd packages/zoea-studio && pnpm lint",
+]
+
+[tasks.lint-backend]
+description = "Run ruff linter on backend"
+run = "cd packages/zoea-core && uv run ruff check ."
+
+[tasks.lint-frontend]
+description = "Run eslint on frontend"
+run = "cd packages/zoea-studio && pnpm lint"
+
+[tasks.format]
+description = "Format all code"
+run = "cd packages/zoea-core && uv run ruff format ."
+
+[tasks.test-cov]
+description = "Run tests with coverage report"
+run = "cd packages/zoea-core && uv run pytest --cov=chat --cov-report=term-missing --cov-report=html"
+
+# =============================================================================
+# Documentation Tasks
+# =============================================================================
+
+[tasks.docs]
+description = "Serve documentation locally"
+run = "cd packages/zoea-docs && .venv/bin/mkdocs serve --dev-addr localhost:${ZOEA_DOCS_PORT:-8001}"
+
+[tasks.docs-build]
+description = "Build documentation site"
+run = "cd packages/zoea-docs && .venv/bin/mkdocs build"
+
+# =============================================================================
+# Database Tasks
+# =============================================================================
+
+[tasks.djshell]
+description = "Run Django shell"
+run = "cd packages/zoea-core && uv run python manage.py shell"
+
+[tasks.dbshell]
+description = "Run database shell"
+run = "cd packages/zoea-core && uv run python manage.py dbshell"
+
+[tasks.db-start]
+description = "Start local Postgres (Docker)"
+run = "docker compose --profile postgres up -d db && echo 'Postgres running on port ${ZOEA_POSTGRES_PORT:-5432}'"
+
+[tasks.db-stop]
+description = "Stop local Postgres (Docker)"
+run = "docker compose --profile postgres down"
+
+[tasks.db-migrate]
+description = "Run Django migrations"
+run = "cd packages/zoea-core && uv run python manage.py migrate"
+
+[tasks.db-backup]
+description = "Create a database backup (JSON dump)"
+run = """
+BACKUP_DIR="${ZOEA_BACKUP_DIR:-backups}"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+BACKUP_FILE="${BACKUP_DIR}/zoea_backup_${TIMESTAMP}.json"
+mkdir -p "$BACKUP_DIR"
+cd packages/zoea-core && uv run python manage.py dumpdata --natural-foreign --natural-primary --indent 2 -o "../../${BACKUP_FILE}"
+echo "Backup created: ${BACKUP_FILE}"
+"""
+
+[tasks.db-restore]
+description = "Restore database from a backup file (usage: mise run db-restore <backup_file>)"
+run = """
+if [ -z "$1" ]; then
+  echo "Usage: mise run db-restore <backup_file>"
+  echo "Available backups:"
+  ls -la "${ZOEA_BACKUP_DIR:-backups}"/*.json 2>/dev/null || echo "No backups found"
+  exit 1
+fi
+cd packages/zoea-core && uv run python manage.py loaddata "$1"
+echo "Database restored from: $1"
+"""
+
+# =============================================================================
+# Worker Tasks
+# =============================================================================
+
+[tasks.worker]
+description = "Start Django-Q2 background worker"
+run = "cd packages/zoea-core && uv run python manage.py qcluster"
+
+[tasks.worker-info]
+description = "Show Django-Q2 cluster info"
+run = "cd packages/zoea-core && uv run python manage.py qinfo"
+
+[tasks.worker-monitor]
+description = "Monitor Django-Q2 cluster status"
+run = "cd packages/zoea-core && uv run python manage.py qmonitor"
+
+# =============================================================================
+# Clean Tasks
+# =============================================================================
+
+[tasks.clean]
+description = "Clean all build artifacts"
+run = [
+    "rm -rf node_modules .turbo",
+    "cd packages/zoea-web-components && rm -rf dist node_modules",
+    "cd packages/zoea-studio && rm -rf dist node_modules",
+    "cd packages/zoea-core && rm -rf .venv __pycache__ *.egg-info",
+    "cd packages/zoea-docs && rm -rf site",
+]

@@ -1,0 +1,147 @@
+@import './styles/shadcn-themes.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Sidebar utilities for Tailwind - using shadcn sidebar variables */
+@layer utilities {
+  .bg-sidebar { background-color: var(--sidebar); }
+  .bg-sidebar-accent { background-color: var(--sidebar-accent); }
+  .bg-sidebar-primary { background-color: var(--sidebar-primary); }
+  .text-sidebar-foreground { color: var(--sidebar-foreground); }
+  .text-sidebar-primary { color: var(--sidebar-primary); }
+  .text-sidebar-primary-foreground { color: var(--sidebar-primary-foreground); }
+  .text-sidebar-accent-foreground { color: var(--sidebar-accent-foreground); }
+  .border-sidebar-border { border-color: var(--sidebar-border); }
+  .border-sidebar-foreground { border-color: var(--sidebar-foreground); }
+  .ring-sidebar-ring { --tw-ring-color: var(--sidebar-ring); }
+}
+
+/* Global styles - minimal to avoid conflicts with App.css */
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.preview-thumb {
+  border-radius: 0.75rem;
+  border: 1px solid #e7e9ed;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+}
+
+.preview-thumb pre {
+  margin: 0;
+  font-size: 0.5rem;
+  max-height: 100%;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.preview-thumb-html {
+  font-size: 0.8rem;
+  padding: 8px;
+}
+
+.preview-thumb-empty {
+  color: #6c757d;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.clipboard-item-preview {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.clipboard-item-preview-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.clipboard-attachments {
+  margin-top: 8px;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #e7e9ed;
+  border-radius: 12px;
+  background: #f9fafb;
+  font-size: 0.85rem;
+}
+
+.attachment-chip img {
+  width: 36px;
+  height: 36px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* ==========================================================================
+   Yoopta Editor Dark Mode Overrides
+   These styles target portal-rendered menus that appear outside the editor
+   ========================================================================== */
+
+/* Action menu container */
+.dark .yoopta-action-menu-list-content {
+  background: var(--popover) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 8px !important;
+}
+
+/* Action menu items */
+.dark [data-action-menu-item] {
+  color: var(--foreground) !important;
+}
+.dark [data-action-menu-item]:hover,
+.dark [data-action-menu-item][aria-selected="true"] {
+  background: var(--accent) !important;
+}
+
+/* Icon containers - override Yoopta's hardcoded white backgrounds */
+.dark [class*="yoo-action-menu-bg-"] {
+  background: var(--secondary) !important;
+}
+.dark [class*="yoo-action-menu-border-"] {
+  border-color: var(--border) !important;
+}
+
+/* Text colors in action menu */
+.dark .yoo-action-menu-font-medium {
+  color: var(--foreground) !important;
+}
+.dark .yoo-action-menu-text-muted-foreground {
+  color: var(--muted-foreground) !important;
+}
+.dark .yoo-action-menu-text-foreground {
+  color: var(--foreground) !important;
+}
+
+/* Toolbar dark mode */
+.dark [data-yoopta-toolbar] {
+  background: var(--popover) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+.dark [data-yoopta-toolbar] button {
+  color: var(--foreground) !important;
+}
+.dark [data-yoopta-toolbar] button:hover {
+  background: var(--accent) !important;
+}
+.dark [data-yoopta-toolbar] button[data-active="true"] {
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}

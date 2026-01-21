@@ -1,0 +1,31 @@
+Folder Model Plan
+
+  1. Modeling
+      - Introduce a Folder model inside documents/models.py built on MPTTModel with fields: name,
+        description, organization, project, workspace, parent (TreeForeignKey), created_by, timestamps,
+        plus slug/path helpers. Add FolderQuerySet inheriting OrganizationScopedQuerySet with
+        for_user, for_workspace, etc. Ensure folders are unique per parent (similar to filesystem). Add
+        Document.folder = TreeForeignKey(Folder, null=True, blank=True, related_name='documents') with
+        on_delete=models.SET_NULL.
+      - Create migrations to add the folder table and new FK on documents; update admin to manage trees
+        (MPTTModelAdmin) and allow inline documents per folder.
+  2. Folder behaviors
+      - Implement tree methods: get_path(), move_to, list_children, list_documents. Use MPTT’s
+        order_insertion_by = ['name'].
+      - Update serializers (documents/schemas.py) to include folder info on documents and new
+        FolderSchema.
+      - Add signals or constraints to keep folder org/project/workspace consistent; when moving a folder,
+        cascade the context to children and ensure documents match folder scope.
+  3. APIs & UI
+      - Extend Ninja API (documents/api.py): endpoints to list root folders per workspace, retrieve folder
+        tree, CRUD folders (create/move/rename/delete), list documents within a folder, move documents
+        between folders.
+      - Frontend: add folder tree navigation on Documents page (e.g., sidebar tree view) plus folder
+        creation/move dialogs; ensure document editor/detail pages show current folder and allow
+        reassignment.
+      - Tests: model tests for hierarchy operations, API tests for permissions/tree manipulation,
+        integration tests verifying documents inherit folder scope.
+
+  This plan keeps folders scoped the same way as documents (organization → project → workspace) and
+  provides a basic filesystem analog. Let me know if you want archive/soft delete or sharing capabilities
+  layered in.

@@ -1,0 +1,29 @@
+# Workflow: summarize_content
+# Summarizes content from various sources (document, folder, clipboard)
+# and saves the result as a MarkdownDocument.
+
+INPUTS:
+  - name: source_type
+    type: str
+    description: Type of source to summarize (document, folder, clipboard)
+    required: true
+
+  - name: source_id
+    type: str
+    description: Identifier for the source (document ID, folder path, or clipboard ID)
+    required: true
+
+  - name: summary_style
+    type: str
+    value: brief
+    description: Summary verbosity level (brief, detailed)
+    required: false
+
+OUTPUTS:
+  - name: "{source_type} Summary"
+    type: MarkdownDocument
+    target: Summaries/{source_type}
+
+SERVICES:
+  - name: AIService
+    ctxref: ai
