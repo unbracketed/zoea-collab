@@ -36,6 +36,8 @@ dependencies = [
     "openpyxl>=3.1.0",
     "starlette>=0.51.0",
     "aiofiles>=25.1.0",
+    "langgraph",
+    "langgraph-checkpoint-postgres>=3.0.3",
 ]
 
 [project.scripts]
@@ -86,6 +88,9 @@ packages = [
     "context_clipboards",
     "document_rag",
     "document_rag.tools",
+    "channels",
+    "execution",
+    "langgraph_runtime",
     "documents",
     "flows",
     "projects",

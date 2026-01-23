@@ -66,6 +66,8 @@ INSTALLED_APPS = [
     'documents',
     'document_rag',
     'agents',
+    'channels',
+    'execution',
     'sources',
     'workflows',
     'events',

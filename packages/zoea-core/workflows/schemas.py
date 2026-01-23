@@ -20,12 +20,12 @@ class ArtifactItem(BaseModel):
         from_attributes = True
 
 
-class WorkflowRunArtifactListResponse(BaseModel):
-    """Response schema for workflow run artifacts endpoint."""
+class ExecutionRunArtifactListResponse(BaseModel):
+    """Response schema for execution run artifacts endpoint."""
 
     items: List[ArtifactItem] = Field(..., description="List of artifact items")
     total: int = Field(..., description="Total number of artifacts")
     collection_id: Optional[int] = Field(None, description="ID of the artifact collection")
     workflow_slug: str = Field(..., description="Slug of the workflow")
-    run_id: str = Field(..., description="UUID of the workflow run")
-    status: str = Field(..., description="Status of the workflow run")
+    run_id: str = Field(..., description="UUID of the run")
+    status: str = Field(..., description="Status of the run")

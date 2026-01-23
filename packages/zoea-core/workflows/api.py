@@ -6,27 +6,27 @@ from ninja import Router
 from ninja.errors import HttpError
 
 from accounts.utils import aget_user_organization
-from .models import WorkflowRun
-from .schemas import ArtifactItem, WorkflowRunArtifactListResponse
+from execution.models import ExecutionRun
+from .schemas import ArtifactItem, ExecutionRunArtifactListResponse
 
 router = Router()
 logger = logging.getLogger(__name__)
 
 
-@router.get("/runs/{run_id}/artifacts", response=WorkflowRunArtifactListResponse)
+@router.get("/runs/{run_id}/artifacts", response=ExecutionRunArtifactListResponse)
 async def get_workflow_run_artifacts(request, run_id: str):
     """
-    Get artifacts for a workflow run.
+    Get artifacts for an execution run.
 
     Args:
         request: Django request object
-        run_id: UUID of the workflow run
+        run_id: UUID of the execution run
 
     Returns:
-        List of artifact items for the workflow run
+        List of artifact items for the execution run
 
     Raises:
-        HttpError: If workflow run not found or user doesn't have access
+        HttpError: If execution run not found or user doesn't have access
     """
     organization = await aget_user_organization(request.user)
     if not organization:
@@ -35,12 +35,12 @@ async def get_workflow_run_artifacts(request, run_id: str):
     @sync_to_async
     def _get_artifacts():
         try:
-            workflow_run = WorkflowRun.objects.get(
+            workflow_run = ExecutionRun.objects.get(
                 run_id=run_id,
                 organization=organization,
             )
-        except WorkflowRun.DoesNotExist:
-            raise HttpError(404, f"Workflow run {run_id} not found or access denied")
+        except ExecutionRun.DoesNotExist:
+            raise HttpError(404, f"Execution run {run_id} not found or access denied")
 
         # Return empty list if no artifacts collection
         if not workflow_run.artifacts_id:
@@ -76,4 +76,4 @@ async def get_workflow_run_artifacts(request, run_id: str):
         }
 
     artifacts_data = await _get_artifacts()
-    return WorkflowRunArtifactListResponse(**artifacts_data)
+    return ExecutionRunArtifactListResponse(**artifacts_data)

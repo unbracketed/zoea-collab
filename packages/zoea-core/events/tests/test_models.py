@@ -6,7 +6,8 @@ import pytest
 from django.contrib.auth import get_user_model
 
 from accounts.models import Account
-from events.models import EventTrigger, EventTriggerRun, EventType
+from events.models import EventTrigger, EventType
+from execution.models import ExecutionRun
 from projects.models import Project
 
 User = get_user_model()
@@ -91,8 +92,8 @@ class TestEventTrigger:
 
 
 @pytest.mark.django_db
-class TestEventTriggerRun:
-    """Tests for EventTriggerRun model."""
+class TestExecutionRun:
+    """Tests for ExecutionRun model."""
 
     def test_create_run(self, organization, user):
         """Test creating a trigger run."""
@@ -104,9 +105,10 @@ class TestEventTriggerRun:
             created_by=user,
         )
 
-        run = EventTriggerRun.objects.create(
+        run = ExecutionRun.objects.create(
             organization=organization,
             trigger=trigger,
+            trigger_type=trigger.event_type,
             source_type="email_message",
             source_id=123,
             inputs={"subject": "Test", "body": "Hello"},
@@ -114,7 +116,7 @@ class TestEventTriggerRun:
 
         assert run.id is not None
         assert run.run_id is not None
-        assert run.status == EventTriggerRun.Status.PENDING
+        assert run.status == ExecutionRun.Status.PENDING
         assert run.source_type == "email_message"
         assert run.source_id == 123
         assert run.inputs == {"subject": "Test", "body": "Hello"}
@@ -129,15 +131,16 @@ class TestEventTriggerRun:
             created_by=user,
         )
 
-        run = EventTriggerRun.objects.create(
+        run = ExecutionRun.objects.create(
             organization=organization,
             trigger=trigger,
+            trigger_type=trigger.event_type,
             source_type="document",
             source_id=1,
         )
 
         # Test all statuses
-        for status in EventTriggerRun.Status:
+        for status in ExecutionRun.Status:
             run.status = status
             run.save()
             run.refresh_from_db()
@@ -156,9 +159,10 @@ class TestEventTriggerRun:
             created_by=user,
         )
 
-        run = EventTriggerRun.objects.create(
+        run = ExecutionRun.objects.create(
             organization=organization,
             trigger=trigger,
+            trigger_type=trigger.event_type,
             source_type="test",
             source_id=1,
         )

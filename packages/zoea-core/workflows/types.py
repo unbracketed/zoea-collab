@@ -99,6 +99,9 @@ class WorkflowSpec(BaseModel):
     slug: str = Field(..., description="Workflow identifier (derived from directory name)")
     name: Optional[str] = Field(default=None, description="Human-readable name")
     description: str = Field(default="", description="Workflow description")
+    graph_id: Optional[str] = Field(
+        default=None, description="Optional LangGraph graph identifier"
+    )
     inputs: List[InputSpec] = Field(default_factory=list, description="Input specifications")
     outputs: List[OutputSpec] = Field(default_factory=list, description="Output specifications")
     services: List[ServiceSpec] = Field(default_factory=list, description="Service bindings")

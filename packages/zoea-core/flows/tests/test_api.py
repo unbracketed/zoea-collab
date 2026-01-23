@@ -23,11 +23,11 @@ from flows.schemas import (
     InputSpecOut,
     OutputSpecOut,
     WorkflowOut,
-    WorkflowOutputResult,
-    WorkflowRunErrorResponse,
-    WorkflowRunRequest,
-    WorkflowRunResponse,
-    WorkflowValidationError,
+    ExecutionOutputResult,
+    ExecutionRunErrorResponse,
+    ExecutionRunRequest,
+    ExecutionRunResponse,
+    ExecutionValidationError,
 )
 from projects.models import Project
 from workflows.registry import WorkflowRegistry
@@ -465,7 +465,7 @@ class TestGetWorkflowEndpoint:
         assert response.status_code == 404
 
 
-class TestWorkflowRunEndpoint:
+class TestExecutionRunEndpoint:
     """Tests for POST /api/flows/workflows/{slug}/run endpoint."""
 
     def test_run_workflow_unauthenticated(self, api_client, db, reset_registry):
@@ -812,20 +812,20 @@ class TestValidateWorkflowInputs:
         assert errors[0].field == "pos_int"
 
 
-class TestWorkflowRunSchemas:
+class TestExecutionRunSchemas:
     """Tests for workflow run request/response schemas."""
 
     def test_workflow_run_request_minimal(self):
-        """Test WorkflowRunRequest with minimal data."""
-        request = WorkflowRunRequest(inputs={"key": "value"})
+        """Test ExecutionRunRequest with minimal data."""
+        request = ExecutionRunRequest(inputs={"key": "value"})
 
         assert request.inputs == {"key": "value"}
         assert request.project_id is None
         assert request.workspace_id is None
 
     def test_workflow_run_request_full(self):
-        """Test WorkflowRunRequest with all fields."""
-        request = WorkflowRunRequest(
+        """Test ExecutionRunRequest with all fields."""
+        request = ExecutionRunRequest(
             inputs={"key": "value"},
             project_id=1,
             workspace_id=2,
@@ -836,13 +836,13 @@ class TestWorkflowRunSchemas:
         assert request.workspace_id == 2
 
     def test_workflow_run_response_serialization(self):
-        """Test WorkflowRunResponse serialization."""
-        response = WorkflowRunResponse(
+        """Test ExecutionRunResponse serialization."""
+        response = ExecutionRunResponse(
             status="completed",
             run_id="abc123",
             workflow="test-workflow",
             outputs={
-                "output1": WorkflowOutputResult(
+                "output1": ExecutionOutputResult(
                     type="MarkdownDocument",
                     id=1,
                     name="Test Output",
@@ -860,12 +860,12 @@ class TestWorkflowRunSchemas:
         assert data["outputs"]["output1"]["type"] == "MarkdownDocument"
 
     def test_workflow_run_error_response(self):
-        """Test WorkflowRunErrorResponse serialization."""
-        response = WorkflowRunErrorResponse(
+        """Test ExecutionRunErrorResponse serialization."""
+        response = ExecutionRunErrorResponse(
             status="failed",
             error="Something went wrong",
             validation_errors=[
-                WorkflowValidationError(field="input1", message="Required field"),
+                ExecutionValidationError(field="input1", message="Required field"),
             ],
         )
 
@@ -877,8 +877,8 @@ class TestWorkflowRunSchemas:
         assert data["validation_errors"][0]["field"] == "input1"
 
     def test_workflow_output_result_with_error(self):
-        """Test WorkflowOutputResult with error."""
-        result = WorkflowOutputResult(
+        """Test ExecutionOutputResult with error."""
+        result = ExecutionOutputResult(
             type="MarkdownDocument",
             error="Failed to create document",
         )

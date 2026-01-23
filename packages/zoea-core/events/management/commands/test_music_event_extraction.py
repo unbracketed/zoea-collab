@@ -14,7 +14,8 @@ from django.core.management.base import BaseCommand, CommandError
 
 from accounts.models import Account
 from events.dispatcher import dispatch_event
-from events.models import EventTrigger, EventTriggerRun, EventType
+from execution.models import ExecutionRun
+from events.models import EventTrigger, EventType
 from projects.models import Project
 
 User = get_user_model()
@@ -251,13 +252,13 @@ class Command(BaseCommand):
                 )
                 self.stdout.write(
                     "  Check status with: "
-                    f"python manage.py shell -c \"from events.models import EventTriggerRun; "
-                    f"print(EventTriggerRun.objects.get(id={run.id}).status)\""
+                    f"python manage.py shell -c \"from execution.models import ExecutionRun; "
+                    f"print(ExecutionRun.objects.get(id={run.id}).status)\""
                 )
 
         # Show how to check results
         self.stdout.write("\n" + "=" * 60)
         self.stdout.write("To view all trigger runs:")
         self.stdout.write(
-            f"  EventTriggerRun.objects.filter(trigger_id={trigger.id})"
+            f"  ExecutionRun.objects.filter(trigger_id={trigger.id})"
         )

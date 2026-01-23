@@ -2,7 +2,7 @@
 
 This module provides high-level APIs for managing DocumentCollection instances
 of type ARTIFACT, including lazy creation and item management for Conversations
-and WorkflowRuns.
+and ExecutionRuns.
 
 Artifacts are automatically collected outputs from conversations (code blocks,
 generated files) and workflow runs (documents, diagrams, etc.).
@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 class ArtifactOwner(Protocol):
     """Protocol for models that can own artifact collections.
 
-    Both Conversation and WorkflowRun implement this protocol.
+    Both Conversation and ExecutionRun implement this protocol.
     """
 
     organization: Any
@@ -73,7 +73,7 @@ class ArtifactService:
     """High-level API for artifact collection and item operations.
 
     Handles DocumentCollection instances of type ARTIFACT, providing
-    lazy creation and item management for conversations and workflow runs.
+    lazy creation and item management for conversations and execution runs.
 
     Example usage:
         service = ArtifactService(actor=user)
@@ -106,10 +106,10 @@ class ArtifactService:
         """Get or lazily create an artifact collection for an owner.
 
         Works with any model that implements the ArtifactOwner protocol
-        (Conversation, WorkflowRun).
+        (Conversation, ExecutionRun).
 
         Args:
-            owner: The object that owns the artifacts (Conversation or WorkflowRun).
+            owner: The object that owns the artifacts (Conversation or ExecutionRun).
             name: Optional name for the collection. Auto-generated if not provided.
 
         Returns:
@@ -279,7 +279,7 @@ def get_or_create_artifacts_for_workflow_run(workflow_run, actor) -> DocumentCol
     """Convenience function to get/create artifacts for a workflow run.
 
     Args:
-        workflow_run: The WorkflowRun instance.
+        workflow_run: The ExecutionRun instance.
         actor: The user performing the operation.
 
     Returns:

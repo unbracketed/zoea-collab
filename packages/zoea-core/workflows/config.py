@@ -93,6 +93,8 @@ def normalize_config(raw: Dict[str, Any], slug: str) -> Dict[str, Any]:
         result["name"] = raw_lower["name"]
     if "description" in raw_lower:
         result["description"] = raw_lower["description"]
+    if "graph_id" in raw_lower:
+        result["graph_id"] = raw_lower["graph_id"]
 
     return result
 

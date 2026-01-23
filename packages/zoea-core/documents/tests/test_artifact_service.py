@@ -16,7 +16,7 @@ from documents.models import (
     DocumentCollection,
     DocumentCollectionItem,
 )
-from workflows.models import WorkflowRun
+from execution.models import ExecutionRun
 
 User = get_user_model()
 
@@ -75,7 +75,7 @@ def conversation(db, organization, project, workspace, user):
 @pytest.fixture
 def workflow_run(db, organization, project, workspace, user):
     """Create a test workflow run."""
-    return WorkflowRun.objects.create(
+    return ExecutionRun.objects.create(
         organization=organization,
         project=project,
         workspace=workspace,

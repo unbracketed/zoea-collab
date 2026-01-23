@@ -44,8 +44,9 @@ class ReadContentNode(WorkflowNode):
         """
         from documents.models import Document, TextDocument
 
-        # Fetch document with subclass resolution
-        doc = Document.objects.select_subclasses().get(id=document_id)
+        scope = self._document_scope(ctx)
+        qs = Document.objects.select_subclasses().filter(id=document_id, **scope)
+        doc = qs.get()
 
         content_parts = []
         metadata = {
@@ -82,7 +83,8 @@ class ReadContentNode(WorkflowNode):
         """
         from documents.models import Document, Folder, TextDocument
 
-        folder = Folder.objects.get(id=folder_id)
+        scope = self._folder_scope(ctx)
+        folder = Folder.objects.get(id=folder_id, **scope)
         documents = Document.objects.select_subclasses().filter(folder=folder)
 
         content_parts = []
@@ -125,10 +127,9 @@ class ReadContentNode(WorkflowNode):
         Returns:
             Dict with 'content' string and 'metadata' dict
         """
-        from context_clipboards.models import Clipboard
         from documents.models import TextDocument
 
-        clipboard = Clipboard.objects.get(id=clipboard_id)
+        clipboard = self._get_scoped_clipboard(clipboard_id, ctx)
         items = clipboard.items.all().order_by("position")
 
         content_parts = []
@@ -190,6 +191,34 @@ class ReadContentNode(WorkflowNode):
             "content": "\n\n---\n\n".join(content_parts),
             "metadata": metadata,
         }
+
+    def _document_scope(self, ctx) -> dict[str, Any]:
+        scope: dict[str, Any] = {}
+        if ctx.organization:
+            scope["organization_id"] = ctx.organization.id
+        if ctx.project:
+            scope["project_id"] = ctx.project.id
+        if ctx.workspace:
+            scope["workspace_id"] = ctx.workspace.id
+        return scope
+
+    def _folder_scope(self, ctx) -> dict[str, Any]:
+        scope: dict[str, Any] = {}
+        if ctx.organization:
+            scope["organization_id"] = ctx.organization.id
+        if ctx.project:
+            scope["project_id"] = ctx.project.id
+        if ctx.workspace:
+            scope["workspace_id"] = ctx.workspace.id
+        return scope
+
+    def _get_scoped_clipboard(self, clipboard_id: str, ctx):
+        from context_clipboards.models import Clipboard
+
+        if ctx.workspace:
+            return Clipboard.objects.get(id=clipboard_id, workspace_id=ctx.workspace.id)
+
+        return Clipboard.objects.get(id=clipboard_id)
 
     def post(self, shared, prep_res, _):
         """Fetch content based on source type and store in state."""

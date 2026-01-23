@@ -10,7 +10,8 @@ from django.contrib.auth import get_user_model
 from accounts.models import Account
 from documents.models import Document, Markdown, TextDocument
 from events.harness import SkillExecutionContext, SkillExecutionHarness
-from events.models import EventTrigger, EventTriggerRun, EventType
+from events.models import EventTrigger, EventType
+from execution.models import ExecutionRun
 from events.scoped_tools import (
     ScopedDocumentCreateTool,
     ScopedDocumentListTool,
@@ -69,9 +70,11 @@ def trigger(organization, project, user):
 @pytest.fixture
 def trigger_run(organization, trigger):
     """Create a test trigger run."""
-    return EventTriggerRun.objects.create(
+    return ExecutionRun.objects.create(
         organization=organization,
         trigger=trigger,
+        project=trigger.project,
+        trigger_type=trigger.event_type,
         source_type="document",
         source_id=1,
         inputs={"test": "data"},
@@ -257,9 +260,10 @@ class TestCreateScopedTools:
             created_by=user,
         )
 
-        run = EventTriggerRun.objects.create(
+        run = ExecutionRun.objects.create(
             organization=organization,
             trigger=trigger,
+            trigger_type=trigger.event_type,
             source_type="email_message",
             source_id=1,
         )

@@ -26,14 +26,14 @@ from .schemas import (
     InputSpecOut,
     OutputSpecOut,
     WorkflowOut,
-    WorkflowOutputResult,
-    WorkflowRunDetail,
-    WorkflowRunErrorResponse,
-    WorkflowRunListItem,
-    WorkflowRunListResponse,
-    WorkflowRunRequest,
-    WorkflowRunResponse,
-    WorkflowValidationError,
+    ExecutionOutputResult,
+    ExecutionRunDetail,
+    ExecutionRunErrorResponse,
+    ExecutionRunListItem,
+    ExecutionRunListResponse,
+    ExecutionRunRequest,
+    ExecutionRunResponse,
+    ExecutionValidationError,
 )
 
 router = Router()
@@ -175,16 +175,16 @@ def get_workflow(request, slug: str) -> WorkflowOut:
 @router.post(
     "/workflows/{slug}/run",
     response={
-        200: WorkflowRunResponse,
-        400: WorkflowRunErrorResponse,
-        500: WorkflowRunErrorResponse,
+        200: ExecutionRunResponse,
+        400: ExecutionRunErrorResponse,
+        500: ExecutionRunErrorResponse,
     },
 )
 async def run_workflow(
     request,
     slug: str,
-    payload: WorkflowRunRequest,
-) -> WorkflowRunResponse:
+    payload: ExecutionRunRequest,
+) -> ExecutionRunResponse:
     """
     Execute a workflow by slug.
 
@@ -197,7 +197,7 @@ async def run_workflow(
         payload: Request body with inputs and optional project/workspace IDs
 
     Returns:
-        WorkflowRunResponse with execution status and outputs
+        ExecutionRunResponse with execution status and outputs
 
     Raises:
         HttpError: 404 if workflow not found
@@ -233,7 +233,7 @@ async def run_workflow(
     # Validate inputs against InputSpec
     validation_errors = _validate_workflow_inputs(spec, payload.inputs)
     if validation_errors:
-        return 400, WorkflowRunErrorResponse(
+        return 400, ExecutionRunErrorResponse(
             status="failed",
             error="Input validation failed",
             validation_errors=validation_errors,
@@ -270,7 +270,7 @@ async def run_workflow(
                 user=request.user,
             )
 
-            return WorkflowRunResponse(
+            return ExecutionRunResponse(
                 status="pending",
                 run_id=str(run.run_id),
                 workflow=slug,
@@ -280,7 +280,7 @@ async def run_workflow(
 
         except Exception as e:
             logger.exception(f"Failed to queue background workflow '{slug}': {e}")
-            return 500, WorkflowRunErrorResponse(
+            return 500, ExecutionRunErrorResponse(
                 status="failed",
                 error=f"Failed to queue workflow: {str(e)}",
             )
@@ -294,9 +294,9 @@ async def run_workflow(
             # Convert outputs to schema format
             outputs = {}
             for output_name, output_data in result.get("outputs", {}).items():
-                outputs[output_name] = WorkflowOutputResult(**output_data)
+                outputs[output_name] = ExecutionOutputResult(**output_data)
 
-            return WorkflowRunResponse(
+            return ExecutionRunResponse(
                 status="completed",
                 run_id=result.get("run_id", ""),
                 workflow=result.get("workflow", slug),
@@ -305,19 +305,19 @@ async def run_workflow(
 
         except WorkflowError as e:
             logger.error(f"Workflow execution error for '{slug}': {e}")
-            return 500, WorkflowRunErrorResponse(
+            return 500, ExecutionRunErrorResponse(
                 status="failed",
                 error=str(e),
             )
         except Exception as e:
             logger.exception(f"Unexpected error executing workflow '{slug}': {e}")
-            return 500, WorkflowRunErrorResponse(
+            return 500, ExecutionRunErrorResponse(
                 status="failed",
                 error=f"Workflow execution failed: {str(e)}",
             )
 
 
-def _validate_workflow_inputs(spec, inputs: dict[str, Any]) -> list[WorkflowValidationError]:
+def _validate_workflow_inputs(spec, inputs: dict[str, Any]) -> list[ExecutionValidationError]:
     """
     Validate inputs against workflow's InputSpec.
 
@@ -337,7 +337,7 @@ def _validate_workflow_inputs(spec, inputs: dict[str, Any]) -> list[WorkflowVali
             input_spec.validate_value(value)
         except ValueError as e:
             errors.append(
-                WorkflowValidationError(
+                ExecutionValidationError(
                     field=input_spec.name,
                     message=str(e),
                 )
@@ -429,18 +429,18 @@ async def _get_workspace_context(project, workspace_id: int | None):
 
 
 # ============================================================================
-# Workflow Runs Endpoints
+# Execution Runs Endpoints
 # ============================================================================
 
 
-@router.get("/runs", response=WorkflowRunListResponse)
+@router.get("/runs", response=ExecutionRunListResponse)
 async def list_workflow_runs(
     request,
     status: str | None = None,
     workflow_slug: str | None = None,
     page: int = 1,
     per_page: int = 20,
-) -> WorkflowRunListResponse:
+) -> ExecutionRunListResponse:
     """
     List workflow runs for the current user's organization.
 
@@ -452,9 +452,9 @@ async def list_workflow_runs(
         per_page: Items per page (max 100)
 
     Returns:
-        WorkflowRunListResponse with paginated list of runs
+        ExecutionRunListResponse with paginated list of runs
     """
-    from workflows.models import WorkflowRun
+    from execution.models import ExecutionRun
 
     # Get user's organization
     organization = await aget_user_organization(request.user)
@@ -468,7 +468,10 @@ async def list_workflow_runs(
 
     @sync_to_async
     def _fetch_runs():
-        queryset = WorkflowRun.objects.filter(organization=organization)
+        queryset = ExecutionRun.objects.filter(
+            organization=organization,
+            workflow_slug__isnull=False,
+        )
 
         # Apply filters
         if status:
@@ -498,7 +501,7 @@ async def list_workflow_runs(
                 workflow_name = run.workflow_slug.replace("_", " ").title()
 
             runs.append(
-                WorkflowRunListItem(
+                ExecutionRunListItem(
                     run_id=str(run.run_id),
                     workflow_slug=run.workflow_slug,
                     workflow_name=workflow_name,
@@ -516,7 +519,7 @@ async def list_workflow_runs(
     _ensure_workflows_discovered()
     runs, total = await _fetch_runs()
 
-    return WorkflowRunListResponse(
+    return ExecutionRunListResponse(
         runs=runs,
         total=total,
         page=page,
@@ -524,7 +527,7 @@ async def list_workflow_runs(
     )
 
 
-@router.get("/runs/{run_id}", response={200: WorkflowRunDetail, 404: WorkflowRunErrorResponse})
+@router.get("/runs/{run_id}", response={200: ExecutionRunDetail, 404: ExecutionRunErrorResponse})
 async def get_workflow_run(request, run_id: str):
     """
     Get details for a specific workflow run.
@@ -534,9 +537,9 @@ async def get_workflow_run(request, run_id: str):
         run_id: Workflow run ID
 
     Returns:
-        WorkflowRunDetail with full run information
+        ExecutionRunDetail with full run information
     """
-    from workflows.models import WorkflowRun
+    from execution.models import ExecutionRun
 
     # Get user's organization
     organization = await aget_user_organization(request.user)
@@ -546,17 +549,19 @@ async def get_workflow_run(request, run_id: str):
     @sync_to_async
     def _fetch_run():
         try:
-            return WorkflowRun.objects.select_related("created_by", "project", "workspace").get(
-                run_id=run_id, organization=organization
+            return ExecutionRun.objects.select_related("created_by", "project", "workspace").get(
+                run_id=run_id,
+                organization=organization,
+                workflow_slug__isnull=False,
             )
-        except WorkflowRun.DoesNotExist:
+        except ExecutionRun.DoesNotExist:
             return None
 
     _ensure_workflows_discovered()
     run = await _fetch_run()
 
     if not run:
-        return 404, WorkflowRunErrorResponse(error=f"Run not found: {run_id}")
+        return 404, ExecutionRunErrorResponse(error=f"Run not found: {run_id}")
 
     # Get workflow name from registry
     workflow_data = WorkflowRegistry.get_instance().get(run.workflow_slug)
@@ -569,7 +574,7 @@ async def get_workflow_run(request, run_id: str):
     else:
         workflow_name = run.workflow_slug.replace("_", " ").title()
 
-    return WorkflowRunDetail(
+    return ExecutionRunDetail(
         run_id=str(run.run_id),
         workflow_slug=run.workflow_slug,
         workflow_name=workflow_name,

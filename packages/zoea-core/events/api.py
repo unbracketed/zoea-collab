@@ -8,11 +8,13 @@ from ninja.errors import HttpError
 
 from accounts.utils import require_organization as _require_organization
 
-from .models import EventTrigger, EventTriggerRun, EventType
+from execution.models import ExecutionRun
+
+from .models import EventTrigger, EventType
 from .schemas import (
+    ExecutionRunResponse,
     EventTriggerCreate,
     EventTriggerResponse,
-    EventTriggerRunResponse,
     EventTriggerUpdate,
     EventTypeInfo,
     EventTypesResponse,
@@ -56,15 +58,16 @@ def _trigger_to_response(trigger: EventTrigger) -> EventTriggerResponse:
     )
 
 
-def _run_to_response(run: EventTriggerRun) -> EventTriggerRunResponse:
-    """Convert an EventTriggerRun to response schema."""
-    return EventTriggerRunResponse(
+def _run_to_response(run: ExecutionRun) -> ExecutionRunResponse:
+    """Convert an ExecutionRun to response schema."""
+    trigger_name = run.trigger.name if run.trigger else ""
+    return ExecutionRunResponse(
         id=run.id,
         run_id=str(run.run_id),
-        trigger_id=run.trigger_id,
-        trigger_name=run.trigger.name,
+        trigger_id=run.trigger_id or 0,
+        trigger_name=trigger_name,
         source_type=run.source_type,
-        source_id=run.source_id,
+        source_id=run.source_id or 0,
         status=run.status,
         inputs=run.inputs or {},
         outputs=run.outputs,
@@ -223,7 +226,7 @@ def delete_trigger(request, trigger_id: int):
     return {"success": True}
 
 
-@router.post("/triggers/{trigger_id}/dispatch", response=EventTriggerRunResponse)
+@router.post("/triggers/{trigger_id}/dispatch", response=ExecutionRunResponse)
 def dispatch_trigger(request, trigger_id: int, data: ManualDispatchRequest):
     """
     Manually dispatch a trigger with specific document IDs.
@@ -259,13 +262,22 @@ def dispatch_trigger(request, trigger_id: int, data: ManualDispatchRequest):
     event_data = _build_documents_selected_event_data(documents, data.document_ids)
 
     # Create the run record
-    run = EventTriggerRun.objects.create(
+    run = ExecutionRun.objects.create(
         organization=trigger.organization,
+        project=trigger.project,
         trigger=trigger,
+        trigger_type=trigger.event_type,
         source_type="documents_selection",
         source_id=data.document_ids[0],
+        input_envelope={
+            "trigger_type": trigger.event_type,
+            "source_type": "documents_selection",
+            "source_id": data.document_ids[0],
+            "payload": event_data,
+        },
         inputs=event_data,
-        status=EventTriggerRun.Status.PENDING,
+        status=ExecutionRun.Status.PENDING,
+        created_by=request.user,
     )
 
     # Queue for execution
@@ -286,7 +298,7 @@ def dispatch_trigger(request, trigger_id: int, data: ManualDispatchRequest):
         _execute_trigger_run(run)
 
     # Refresh to get trigger relation for response
-    run = EventTriggerRun.objects.select_related("trigger").get(id=run.id)
+    run = ExecutionRun.objects.select_related("trigger").get(id=run.id)
 
     return _run_to_response(run)
 
@@ -323,52 +335,53 @@ def _build_documents_selected_event_data(documents, document_ids: list[int]) -> 
     }
 
 
-@router.get("/triggers/{trigger_id}/runs", response=list[EventTriggerRunResponse])
+@router.get("/triggers/{trigger_id}/runs", response=list[ExecutionRunResponse])
 def list_trigger_runs(request, trigger_id: int, limit: int = 50):
-    """List runs for a specific trigger."""
+    """List execution runs for a specific trigger."""
     organization = require_organization(request.user)
 
     trigger = get_object_or_404(
         EventTrigger, id=trigger_id, organization=organization
     )
 
-    runs = EventTriggerRun.objects.filter(
+    runs = ExecutionRun.objects.filter(
         trigger=trigger
     ).select_related("trigger").order_by("-created_at")[:limit]
 
     return [_run_to_response(r) for r in runs]
 
 
-@router.get("/runs", response=list[EventTriggerRunResponse])
+@router.get("/runs", response=list[ExecutionRunResponse])
 def list_runs(
     request,
     status: str | None = None,
     project_id: int | None = None,
     limit: int = 50,
 ):
-    """List trigger runs for the organization, optionally filtered by project."""
+    """List trigger execution runs for the organization, optionally filtered by project."""
     organization = require_organization(request.user)
 
-    queryset = EventTriggerRun.objects.filter(
-        organization=organization
-    ).select_related("trigger", "trigger__project").order_by("-created_at")
+    queryset = ExecutionRun.objects.filter(
+        organization=organization,
+        trigger_id__isnull=False,
+    ).select_related("trigger", "project").order_by("-created_at")
 
     if status:
         queryset = queryset.filter(status=status)
 
     if project_id is not None:
-        queryset = queryset.filter(trigger__project_id=project_id)
+        queryset = queryset.filter(project_id=project_id)
 
     return [_run_to_response(r) for r in queryset[:limit]]
 
 
-@router.get("/runs/{run_id}", response=EventTriggerRunResponse)
+@router.get("/runs/{run_id}", response=ExecutionRunResponse)
 def get_run(request, run_id: str):
-    """Get a specific trigger run by run_id."""
+    """Get a specific trigger execution run by run_id."""
     organization = require_organization(request.user)
 
     run = get_object_or_404(
-        EventTriggerRun.objects.select_related("trigger"),
+        ExecutionRun.objects.select_related("trigger"),
         run_id=run_id,
         organization=organization,
     )

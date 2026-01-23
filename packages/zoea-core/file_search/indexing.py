@@ -424,8 +424,8 @@ def _get_collection_metadata(document) -> dict:
     if email_thread_id:
         metadata["email_thread_id"] = str(email_thread_id)
 
-    workflow_run_id = collection.workflow_runs.values_list("id", flat=True).first()
-    if workflow_run_id:
-        metadata["workflow_run_id"] = str(workflow_run_id)
+    execution_run_id = collection.execution_runs.values_list("id", flat=True).first()
+    if execution_run_id:
+        metadata["execution_run_id"] = str(execution_run_id)
 
     return metadata

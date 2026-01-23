@@ -13,7 +13,9 @@ from typing import TYPE_CHECKING, Any
 from django.db import transaction
 from django.utils import timezone
 
-from .models import EventTrigger, EventTriggerRun, EventType
+from execution.models import ExecutionRun
+
+from .models import EventTrigger, EventType
 
 if TYPE_CHECKING:
     from organizations.models import Organization
@@ -29,7 +31,7 @@ class EventDispatcher:
     Responsibilities:
     1. Find matching EventTriggers for an event
     2. Apply event filters
-    3. Create EventTriggerRun records
+    3. Create ExecutionRun records
     4. Dispatch to SkillsAgentService (sync or async)
     """
 
@@ -42,7 +44,7 @@ class EventDispatcher:
         organization: Organization,
         project: Project | None = None,
         user=None,
-    ) -> list[EventTriggerRun]:
+    ) -> list[ExecutionRun]:
         """
         Dispatch an event to all matching triggers.
 
@@ -56,7 +58,7 @@ class EventDispatcher:
             user: Optional user who initiated the event
 
         Returns:
-            List of EventTriggerRun records created for matching triggers
+            List of ExecutionRun records created for matching triggers
         """
         if isinstance(event_type, EventType):
             event_type = event_type.value
@@ -81,7 +83,7 @@ class EventDispatcher:
         logger.info(f"Found {len(triggers)} matching triggers for event {event_type}")
 
         # Create runs and dispatch
-        runs: list[EventTriggerRun] = []
+        runs: list[ExecutionRun] = []
         for trigger in triggers:
             try:
                 run = self._dispatch_trigger(
@@ -180,7 +182,7 @@ class EventDispatcher:
         source_type: str,
         source_id: int,
         event_data: dict[str, Any],
-    ) -> EventTriggerRun:
+    ) -> ExecutionRun:
         """
         Dispatch a single trigger, creating a run record.
 
@@ -191,32 +193,39 @@ class EventDispatcher:
             event_data: Event payload data
 
         Returns:
-            EventTriggerRun record
+            ExecutionRun record
         """
         # Create the run record
-        run = EventTriggerRun.objects.create(
+        run = ExecutionRun.objects.create(
             organization=trigger.organization,
+            project=trigger.project,
             trigger=trigger,
+            trigger_type=trigger.event_type,
             source_type=source_type,
             source_id=source_id,
+            input_envelope={
+                "trigger_type": trigger.event_type,
+                "source_type": source_type,
+                "source_id": source_id,
+                "payload": event_data,
+            },
             inputs=event_data,
-            status=EventTriggerRun.Status.PENDING,
+            status=ExecutionRun.Status.PENDING,
+            created_by=trigger.created_by,
         )
 
         logger.info(
-            f"Created EventTriggerRun {run.run_id} for trigger {trigger.name}"
+            f"Created ExecutionRun {run.run_id} for trigger {trigger.name}"
         )
 
         if trigger.run_async:
-            # Queue for background execution
             self._queue_async_execution(run)
         else:
-            # Execute synchronously
             self._execute_sync(run)
 
         return run
 
-    def _queue_async_execution(self, run: EventTriggerRun) -> None:
+    def _queue_async_execution(self, run: ExecutionRun) -> None:
         """Queue trigger execution to background task."""
         from django_q.tasks import async_task
 
@@ -232,7 +241,7 @@ class EventDispatcher:
 
         logger.info(f"Queued trigger run {run.run_id} as task {task_id}")
 
-    def _execute_sync(self, run: EventTriggerRun) -> None:
+    def _execute_sync(self, run: ExecutionRun) -> None:
         """Execute trigger synchronously."""
         from .tasks import _execute_trigger_run
 
@@ -253,7 +262,7 @@ def dispatch_event(
     organization,
     project=None,
     user=None,
-) -> list[EventTriggerRun]:
+) -> list[ExecutionRun]:
     """
     Convenience function for dispatching events.
 

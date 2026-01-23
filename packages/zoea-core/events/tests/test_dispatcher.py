@@ -9,7 +9,8 @@ from django.contrib.auth import get_user_model
 
 from accounts.models import Account
 from events.dispatcher import EventDispatcher, dispatch_event
-from events.models import EventTrigger, EventTriggerRun, EventType
+from events.models import EventTrigger, EventType
+from execution.models import ExecutionRun
 from projects.models import Project
 
 User = get_user_model()
@@ -203,7 +204,7 @@ class TestEventDispatcher:
 
     @patch("events.dispatcher.EventDispatcher._execute_sync")
     def test_dispatch_creates_run(self, mock_execute, organization, email_trigger):
-        """Test that dispatch creates EventTriggerRun records."""
+        """Test that dispatch creates ExecutionRun records."""
         dispatcher = EventDispatcher()
 
         runs = dispatcher.dispatch(
@@ -221,7 +222,7 @@ class TestEventDispatcher:
         assert run.source_type == "email_message"
         assert run.source_id == 123
         assert run.inputs == {"subject": "Test Email", "body": "Hello"}
-        assert run.status == EventTriggerRun.Status.PENDING
+        assert run.status == ExecutionRun.Status.PENDING
 
         # Verify sync execution was called
         mock_execute.assert_called_once()

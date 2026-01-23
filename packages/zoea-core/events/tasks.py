@@ -19,7 +19,7 @@ def _create_artifacts_collection(run, document_ids: list, trigger):
     Create a DocumentCollection for artifacts created during skill execution.
 
     Args:
-        run: EventTriggerRun instance
+        run: ExecutionRun instance
         document_ids: List of document IDs to add to the collection
         trigger: EventTrigger instance
 
@@ -42,7 +42,7 @@ def _create_artifacts_collection(run, document_ids: list, trigger):
 
     # Get the organization and project from the trigger
     organization = run.organization
-    project = trigger.project
+    project = trigger.project if trigger else run.project
 
     # Create the collection
     run_id_str = str(run.run_id)
@@ -115,7 +115,7 @@ def _link_artifacts_to_conversation(run, artifacts_collection):
     For email_message sources, finds the conversation via the email thread.
 
     Args:
-        run: EventTriggerRun instance
+        run: ExecutionRun instance
         artifacts_collection: DocumentCollection to link
     """
     if not artifacts_collection:
@@ -156,20 +156,20 @@ def execute_event_trigger(trigger_run_id: int) -> dict:
     This is the entry point for Django-Q2 async task execution.
 
     Args:
-        trigger_run_id: ID of the EventTriggerRun to execute
+        trigger_run_id: ID of the ExecutionRun to execute
 
     Returns:
         Dict with execution results
     """
-    from .models import EventTriggerRun
+    from execution.models import ExecutionRun
 
     try:
-        run = EventTriggerRun.objects.select_related(
-            "trigger", "organization"
+        run = ExecutionRun.objects.select_related(
+            "trigger", "organization", "project"
         ).get(id=trigger_run_id)
-    except EventTriggerRun.DoesNotExist:
-        logger.error(f"EventTriggerRun {trigger_run_id} not found")
-        return {"error": f"EventTriggerRun {trigger_run_id} not found"}
+    except ExecutionRun.DoesNotExist:
+        logger.error(f"ExecutionRun {trigger_run_id} not found")
+        return {"error": f"ExecutionRun {trigger_run_id} not found"}
 
     try:
         _execute_trigger_run(run)
@@ -195,24 +195,25 @@ def _execute_trigger_run(run) -> None:
     Execute the trigger run using SkillsAgentService.
 
     Args:
-        run: EventTriggerRun instance to execute
+        run: ExecutionRun instance to execute
     """
-    from .models import EventTriggerRun
+    from execution.models import ExecutionRun
 
     # Update status to running
-    run.status = EventTriggerRun.Status.RUNNING
+    run.status = ExecutionRun.Status.RUNNING
     run.started_at = timezone.now()
     run.save(update_fields=["status", "started_at", "updated_at"])
 
     trigger = run.trigger
 
     # Validate trigger has skills configured
-    if not trigger.skills:
-        run.status = EventTriggerRun.Status.SKIPPED
+    if not trigger or not trigger.skills:
+        run.status = ExecutionRun.Status.SKIPPED
         run.error = "No skills configured for trigger"
         run.completed_at = timezone.now()
         run.save(update_fields=["status", "error", "completed_at", "updated_at"])
-        logger.warning(f"Trigger {trigger.id} has no skills configured")
+        if trigger:
+            logger.warning(f"Trigger {trigger.id} has no skills configured")
         return
 
     try:
@@ -222,7 +223,7 @@ def _execute_trigger_run(run) -> None:
         from events.harness import SkillExecutionHarness
 
         # Get project for LLM configuration
-        project = trigger.project
+        project = trigger.project if trigger else run.project
 
         # Extract agent config
         agent_config = trigger.agent_config or {}
@@ -237,7 +238,7 @@ def _execute_trigger_run(run) -> None:
             max_documents = agent_config.get("max_documents_per_run", 50)
             rate_limit = agent_config.get("rate_limit_per_domain", 10)
 
-            harness = SkillExecutionHarness.from_trigger_run(
+            harness = SkillExecutionHarness.from_execution_run(
                 run,
                 allowed_external_domains=frozenset(allowed_domains)
                 if allowed_domains
@@ -258,8 +259,8 @@ def _execute_trigger_run(run) -> None:
 
         # Build context from run data
         context = {
-            "trigger_name": trigger.name,
-            "trigger_id": trigger.id,
+            "trigger_name": trigger.name if trigger else None,
+            "trigger_id": trigger.id if trigger else None,
             "run_id": str(run.run_id),
             "organization_id": run.organization_id,
         }
@@ -296,7 +297,7 @@ def _execute_trigger_run(run) -> None:
             )
 
         # Update run with results
-        run.status = EventTriggerRun.Status.COMPLETED
+        run.status = ExecutionRun.Status.COMPLETED
         run.outputs = {
             "response": response.response,
             "skills_used": response.skills_used,
@@ -346,7 +347,7 @@ def _execute_trigger_run(run) -> None:
 
     except Exception as e:
         # Update run with error
-        run.status = EventTriggerRun.Status.FAILED
+        run.status = ExecutionRun.Status.FAILED
         run.error = str(e)
         run.completed_at = timezone.now()
         run.save(
@@ -370,12 +371,12 @@ def retry_failed_trigger_runs(max_retries: int = 3) -> int:
     Returns:
         Number of runs retried
     """
-    from .models import EventTriggerRun
+    from execution.models import ExecutionRun
 
     # Find failed runs that haven't exceeded retry limit
     # Note: Would need to track retry count for full implementation
-    failed_runs = EventTriggerRun.objects.filter(
-        status=EventTriggerRun.Status.FAILED,
+    failed_runs = ExecutionRun.objects.filter(
+        status=ExecutionRun.Status.FAILED,
     ).select_related("trigger")[:50]
 
     retried = 0
@@ -384,7 +385,7 @@ def retry_failed_trigger_runs(max_retries: int = 3) -> int:
             continue
 
         # Reset status and re-queue
-        run.status = EventTriggerRun.Status.PENDING
+        run.status = ExecutionRun.Status.PENDING
         run.error = None
         run.started_at = None
         run.completed_at = None

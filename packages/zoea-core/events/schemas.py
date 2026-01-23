@@ -75,8 +75,8 @@ class EventTriggerResponse(BaseModel):
         from_attributes = True
 
 
-class EventTriggerRunResponse(BaseModel):
-    """Response schema for a trigger run."""
+class ExecutionRunResponse(BaseModel):
+    """Response schema for an execution run."""
 
     id: int
     run_id: str

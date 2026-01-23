@@ -57,7 +57,7 @@ class WorkflowListResponse(BaseModel):
     total: int = Field(..., description="Total number of workflows")
 
 
-class WorkflowRunRequest(BaseModel):
+class ExecutionRunRequest(BaseModel):
     """Request schema for workflow execution endpoint."""
 
     model_config = ConfigDict(extra="allow")
@@ -78,7 +78,7 @@ class WorkflowRunRequest(BaseModel):
     )
 
 
-class WorkflowOutputResult(BaseModel):
+class ExecutionOutputResult(BaseModel):
     """Schema for individual output result in workflow response."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -93,7 +93,7 @@ class WorkflowOutputResult(BaseModel):
     )
 
 
-class WorkflowRunResponse(BaseModel):
+class ExecutionRunResponse(BaseModel):
     """Response schema for workflow execution endpoint."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -103,7 +103,7 @@ class WorkflowRunResponse(BaseModel):
     )
     run_id: str = Field(..., description="Unique identifier for this workflow run")
     workflow: str = Field(..., description="Workflow slug that was executed")
-    outputs: dict[str, WorkflowOutputResult] | None = Field(
+    outputs: dict[str, ExecutionOutputResult] | None = Field(
         default=None, description="Output results keyed by output name (null if pending/running)"
     )
     error: str | None = Field(
@@ -114,29 +114,29 @@ class WorkflowRunResponse(BaseModel):
     )
 
 
-class WorkflowValidationError(BaseModel):
+class ExecutionValidationError(BaseModel):
     """Schema for input validation error details."""
 
     field: str = Field(..., description="Input field name that failed validation")
     message: str = Field(..., description="Validation error message")
 
 
-class WorkflowRunErrorResponse(BaseModel):
+class ExecutionRunErrorResponse(BaseModel):
     """Error response schema for workflow execution failures."""
 
     status: str = Field(default="failed", description="Execution status")
     error: str = Field(..., description="Error message")
-    validation_errors: list[WorkflowValidationError] | None = Field(
+    validation_errors: list[ExecutionValidationError] | None = Field(
         default=None, description="List of input validation errors (for 400 responses)"
     )
 
 
 # ============================================================================
-# Workflow Run History Schemas
+# Execution Run History Schemas
 # ============================================================================
 
 
-class WorkflowRunListItem(BaseModel):
+class ExecutionRunListItem(BaseModel):
     """Schema for workflow run in list view."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -152,7 +152,7 @@ class WorkflowRunListItem(BaseModel):
     created_by_username: str | None = Field(default=None, description="Username who initiated")
 
 
-class WorkflowRunDetail(WorkflowRunListItem):
+class ExecutionRunDetail(ExecutionRunListItem):
     """Full workflow run details for single-item view."""
 
     inputs: dict = Field(default_factory=dict, description="Input parameters used")
@@ -164,10 +164,10 @@ class WorkflowRunDetail(WorkflowRunListItem):
     workspace_id: int = Field(..., description="Workspace ID")
 
 
-class WorkflowRunListResponse(BaseModel):
+class ExecutionRunListResponse(BaseModel):
     """Response for workflow runs list endpoint."""
 
-    runs: list[WorkflowRunListItem] = Field(..., description="List of workflow runs")
+    runs: list[ExecutionRunListItem] = Field(..., description="List of workflow runs")
     total: int = Field(..., description="Total number of runs matching filters")
     page: int = Field(default=1, description="Current page number")
     per_page: int = Field(default=20, description="Items per page")

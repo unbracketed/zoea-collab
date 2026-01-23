@@ -17,7 +17,8 @@ from events.harness import (
     SkillExecutionContext,
     SkillExecutionHarness,
 )
-from events.models import EventTrigger, EventTriggerRun, EventType
+from events.models import EventTrigger, EventType
+from execution.models import ExecutionRun
 from projects.models import Project
 
 User = get_user_model()
@@ -85,9 +86,11 @@ def trigger(organization, user):
 @pytest.fixture
 def trigger_run(organization, trigger):
     """Create a test trigger run."""
-    return EventTriggerRun.objects.create(
+    return ExecutionRun.objects.create(
         organization=organization,
         trigger=trigger,
+        project=trigger.project,
+        trigger_type=trigger.event_type,
         source_type="email_message",
         source_id=1,
         inputs={"test": "data"},
@@ -111,9 +114,11 @@ def project_trigger(organization, project, user):
 @pytest.fixture
 def project_trigger_run(organization, project_trigger):
     """Create a trigger run for project-scoped trigger."""
-    return EventTriggerRun.objects.create(
+    return ExecutionRun.objects.create(
         organization=organization,
         trigger=project_trigger,
+        project=project_trigger.project,
+        trigger_type=project_trigger.event_type,
         source_type="document",
         source_id=1,
         inputs={"document_type": "MarkdownDocument"},

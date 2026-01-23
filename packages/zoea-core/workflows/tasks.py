@@ -15,7 +15,7 @@ Usage:
         workspace=workspace,
         user=user,
     )
-    # Returns WorkflowRun instance with run.run_id and run.task_id
+    # Returns ExecutionRun instance with run.run_id and run.task_id
 """
 
 import logging
@@ -40,7 +40,7 @@ def execute_workflow_background(
 
     This function is called by Django-Q2 workers. It loads the necessary
     context objects, executes the workflow synchronously within the worker,
-    and updates the WorkflowRun record with results.
+    and updates the ExecutionRun record with results.
 
     Args:
         run_id: Unique identifier for this workflow run
@@ -64,7 +64,7 @@ def execute_workflow_background(
     from organizations.models import Organization
     from projects.models import Project
     from workspaces.models import Workspace
-    from workflows.models import WorkflowRun
+    from execution.models import ExecutionRun
     from workflows.runner import WorkflowRunner
 
     logger.info(f"Starting background execution of workflow '{workflow_slug}' run {run_id}")
@@ -81,13 +81,13 @@ def execute_workflow_background(
 
     # Get run record
     try:
-        run = WorkflowRun.objects.get(run_id=run_id)
-    except WorkflowRun.DoesNotExist:
-        logger.error(f"WorkflowRun not found: {run_id}")
+        run = ExecutionRun.objects.get(run_id=run_id)
+    except ExecutionRun.DoesNotExist:
+        logger.error(f"ExecutionRun not found: {run_id}")
         raise
 
     # Update run status to running
-    run.status = WorkflowRun.Status.RUNNING
+    run.status = ExecutionRun.Status.RUNNING
     run.started_at = timezone.now()
     run.save(update_fields=["status", "started_at", "updated_at"])
     logger.info(f"Run {run_id} status updated to 'running'")
@@ -107,7 +107,7 @@ def execute_workflow_background(
         result = asyncio.run(runner.run(workflow_slug, inputs))
 
         # Update with results
-        run.status = WorkflowRun.Status.COMPLETED
+        run.status = ExecutionRun.Status.COMPLETED
         run.outputs = result.get("outputs", {})
         run.completed_at = timezone.now()
 
@@ -125,7 +125,7 @@ def execute_workflow_background(
     except Exception as e:
         logger.error(f"Run {run_id} failed: {e}", exc_info=True)
 
-        run.status = WorkflowRun.Status.FAILED
+        run.status = ExecutionRun.Status.FAILED
         run.error = str(e)
         run.completed_at = timezone.now()
         run.save(update_fields=["status", "error", "completed_at", "updated_at"])
@@ -143,7 +143,7 @@ def create_and_queue_workflow_run(
     timeout: int = 600,
 ):
     """
-    Create a WorkflowRun record and queue it for background execution.
+    Create an ExecutionRun record and queue it for background execution.
 
     This is the main entry point for background workflow execution from API endpoints.
 
@@ -157,24 +157,26 @@ def create_and_queue_workflow_run(
         timeout: Task timeout in seconds (default 10 minutes)
 
     Returns:
-        WorkflowRun instance with task_id set
+        ExecutionRun instance with task_id set
     """
     from django_q.tasks import async_task
 
-    from workflows.models import WorkflowRun
+    from execution.models import ExecutionRun
 
     # Create the run record
-    run = WorkflowRun.objects.create(
+    run = ExecutionRun.objects.create(
         organization=organization,
         workflow_slug=workflow_slug,
-        status=WorkflowRun.Status.PENDING,
+        graph_id=workflow_slug,
+        trigger_type="workflow",
+        status=ExecutionRun.Status.PENDING,
         inputs=inputs,
         created_by=user,
         project=project,
         workspace=workspace,
     )
 
-    logger.info(f"Created WorkflowRun {run.run_id} for workflow '{workflow_slug}'")
+    logger.info(f"Created ExecutionRun {run.run_id} for workflow '{workflow_slug}'")
 
     # Queue the background task
     task_id = async_task(
@@ -209,10 +211,10 @@ def get_workflow_run_status(run_id: str) -> dict:
     Returns:
         dict with status info
     """
-    from workflows.models import WorkflowRun
+    from execution.models import ExecutionRun
 
     try:
-        run = WorkflowRun.objects.get(run_id=run_id)
+        run = ExecutionRun.objects.get(run_id=run_id)
         return {
             "run_id": str(run.run_id),
             "workflow_slug": run.workflow_slug,
@@ -226,5 +228,5 @@ def get_workflow_run_status(run_id: str) -> dict:
             "duration_seconds": run.duration_seconds,
             "provider_model": run.provider_model,
         }
-    except WorkflowRun.DoesNotExist:
+    except ExecutionRun.DoesNotExist:
         return {"error": f"Run not found: {run_id}"}

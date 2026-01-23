@@ -56,7 +56,7 @@ class SkillExecutionContext:
     Attributes:
         organization_id: ID of the owning organization
         project_id: Optional project scope (None for org-wide triggers)
-        trigger_run_id: ID of the EventTriggerRun for tracking
+        trigger_run_id: ID of the ExecutionRun for tracking
         source_type: Type of source that triggered this run
         source_id: ID of the source object
         user_id: Optional user ID for attribution
@@ -93,7 +93,7 @@ class SkillExecutionContext:
             raise ValueError("trigger_run_id must be positive")
 
     @classmethod
-    def from_trigger_run(
+    def from_execution_run(
         cls,
         trigger_run,
         *,
@@ -103,10 +103,10 @@ class SkillExecutionContext:
         rate_limit_per_domain: int = 10,
     ) -> SkillExecutionContext:
         """
-        Create context from an EventTriggerRun.
+        Create context from an ExecutionRun.
 
         Args:
-            trigger_run: EventTriggerRun instance
+            trigger_run: ExecutionRun instance
             allowed_document_types: Override allowed document types
             max_documents_per_run: Override max documents
             allowed_external_domains: Override allowed domains
@@ -115,10 +115,10 @@ class SkillExecutionContext:
         Returns:
             SkillExecutionContext instance
         """
-        from events.models import EventTriggerRun
+        from execution.models import ExecutionRun
 
-        if not isinstance(trigger_run, EventTriggerRun):
-            raise TypeError(f"Expected EventTriggerRun, got {type(trigger_run)}")
+        if not isinstance(trigger_run, ExecutionRun):
+            raise TypeError(f"Expected ExecutionRun, got {type(trigger_run)}")
 
         # Get allowed domains from trigger config if not overridden
         if allowed_external_domains is None:
@@ -128,16 +128,28 @@ class SkillExecutionContext:
 
         return cls(
             organization_id=trigger_run.organization_id,
-            project_id=trigger_run.trigger.project_id,
+            project_id=trigger_run.project_id,
             trigger_run_id=trigger_run.id,
             source_type=trigger_run.source_type,
-            source_id=trigger_run.source_id,
+            source_id=trigger_run.source_id or 0,
             allowed_document_types=allowed_document_types
             or frozenset({"MarkdownDocument", "YooptaDocument", "TextDocument"}),
             max_documents_per_run=max_documents_per_run,
             allowed_external_domains=allowed_external_domains,
             rate_limit_per_domain=rate_limit_per_domain,
         )
+
+    @classmethod
+    def from_trigger_run(
+        cls,
+        trigger_run,
+        *,
+        allowed_document_types: frozenset[str] | None = None,
+        max_documents_per_run: int = 50,
+        allowed_external_domains: frozenset[str] | None = None,
+        rate_limit_per_domain: int = 10,
+    ) -> SkillExecutionContext:
+        \"\"\"Backward-compatible alias for from_execution_run.\"\"\"\n+        return cls.from_execution_run(\n+            trigger_run,\n+            allowed_document_types=allowed_document_types,\n+            max_documents_per_run=max_documents_per_run,\n+            allowed_external_domains=allowed_external_domains,\n+            rate_limit_per_domain=rate_limit_per_domain,\n+        )
 
 
 # =============================================================================
@@ -869,10 +881,10 @@ class SkillExecutionHarness:
         **context_kwargs,
     ) -> SkillExecutionHarness:
         """
-        Create harness from an EventTriggerRun.
+        Create harness from an ExecutionRun.
 
         Args:
-            trigger_run: EventTriggerRun instance
+            trigger_run: ExecutionRun instance
             **context_kwargs: Additional context configuration
 
         Returns:
