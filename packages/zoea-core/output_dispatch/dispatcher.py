@@ -439,7 +439,7 @@ class OutputDispatcher:
         output_data: dict[str, Any],
     ) -> dict[str, Any]:
         """Create a document from the output."""
-        from documents.models import MarkdownDocument
+        from documents.models import Markdown
 
         # Generate document name
         name = route.document_name_template.format(
@@ -454,7 +454,7 @@ class OutputDispatcher:
             content = json.dumps(content, indent=2)
 
         # Create document
-        document = MarkdownDocument.objects.create(
+        document = Markdown.objects.create(
             organization=route.organization,
             project=route.project,
             folder=route.document_folder,

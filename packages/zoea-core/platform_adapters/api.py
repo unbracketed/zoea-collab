@@ -433,6 +433,8 @@ def _dispatch_to_event_system(message: PlatformMessage) -> None:
 
         dispatch_event(
             event_type=EventType.CHAT_MESSAGE,
+            source_type="platform_message",
+            source_id=str(message.message_id),
             organization=message.organization,
             project=message.project,
             event_data=message.to_trigger_envelope(),

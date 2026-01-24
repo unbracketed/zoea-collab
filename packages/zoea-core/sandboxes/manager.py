@@ -10,6 +10,7 @@ Provides a high-level interface for:
 from __future__ import annotations
 
 import logging
+import shutil
 from typing import TYPE_CHECKING
 
 from django.db import transaction
@@ -192,7 +193,26 @@ class SandboxManager:
         """
         try:
             executor = cls.get_executor(session)
-            return executor.terminate()
+            success = executor.terminate()
+
+            # Clean up workspace directory if requested and termination succeeded
+            if cleanup_workspace and success and session.workspace_path:
+                try:
+                    import os
+
+                    if os.path.exists(session.workspace_path):
+                        shutil.rmtree(session.workspace_path)
+                        logger.info(
+                            f"Cleaned up workspace {session.workspace_path} "
+                            f"for session {session.session_id}"
+                        )
+                except Exception as cleanup_error:
+                    # Log but don't fail - termination already succeeded
+                    logger.warning(
+                        f"Failed to cleanup workspace {session.workspace_path}: {cleanup_error}"
+                    )
+
+            return success
 
         except Exception as e:
             logger.exception(f"Error terminating sandbox {session.session_id}: {e}")

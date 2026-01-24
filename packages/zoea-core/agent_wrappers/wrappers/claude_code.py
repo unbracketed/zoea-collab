@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shlex
 import subprocess
 import tempfile
 import time
@@ -246,15 +247,15 @@ class ClaudeCodeWrapper(BaseAgentWrapper):
         if self.config.cli_args:
             parts.extend(self.config.cli_args)
 
-        # Add context files
+        # Add context files (shell-escaped for paths with spaces)
         for file_path in context.context_files:
-            parts.append(f"--file {file_path}")
+            parts.append(f"--file {shlex.quote(file_path)}")
 
-        # Add allowed tools/commands if configured
+        # Add allowed tools/commands if configured (shell-escaped for safety)
         allowed_tools = self.get_setting("allowed_tools")
         if allowed_tools:
             for tool in allowed_tools:
-                parts.append(f"--tool {tool}")
+                parts.append(f"--tool {shlex.quote(tool)}")
 
         return " ".join(parts)
 
