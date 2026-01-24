@@ -28,6 +28,24 @@ class ToolListResponse(Schema):
     project_id: int
 
 
+class SkillInfo(Schema):
+    """Skill information response."""
+
+    name: str
+    description: str
+    license: str | None = None
+    compatibility: str | None = None
+    allowed_tools: list[str] = []
+    supported_contexts: list[str] = []
+    metadata: dict[str, str] = {}
+
+
+class SkillListResponse(Schema):
+    """Response for listing registered skills."""
+
+    skills: list[SkillInfo]
+
+
 class ToolEnableRequest(Schema):
     """Request to enable/disable a tool."""
 

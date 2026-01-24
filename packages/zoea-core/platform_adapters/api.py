@@ -68,6 +68,7 @@ class PlatformConnectionOut(Schema):
     status: str
     status_message: str
     webhook_url: str
+    webhook_secret: str | None = None
     project_id: int | None
     message_count: int
     last_message_at: str | None
@@ -75,7 +76,9 @@ class PlatformConnectionOut(Schema):
     updated_at: str
 
     @staticmethod
-    def from_model(conn: PlatformConnection) -> "PlatformConnectionOut":
+    def from_model(
+        conn: PlatformConnection, *, include_secret: bool = False
+    ) -> "PlatformConnectionOut":
         return PlatformConnectionOut(
             id=conn.id,
             connection_id=str(conn.connection_id),
@@ -85,6 +88,7 @@ class PlatformConnectionOut(Schema):
             status=conn.status,
             status_message=conn.status_message,
             webhook_url=conn.get_webhook_url(),
+            webhook_secret=conn.webhook_secret if include_secret else None,
             project_id=conn.project_id,
             message_count=conn.message_count,
             last_message_at=conn.last_message_at.isoformat() if conn.last_message_at else None,
@@ -144,6 +148,9 @@ def list_connections(
     request: HttpRequest,
     platform_type: str | None = Query(None, description="Filter by platform type"),
     project_id: int | None = Query(None, description="Filter by project"),
+    include_secret: bool = Query(
+        False, description="Include webhook secret for webhook connections"
+    ),
 ):
     """List all platform connections for the user's organization."""
     organization = get_user_organization(request.user)
@@ -161,7 +168,15 @@ def list_connections(
     connections = list(queryset.order_by("-created_at"))
 
     return PlatformConnectionListResponse(
-        connections=[PlatformConnectionOut.from_model(c) for c in connections],
+        connections=[
+            PlatformConnectionOut.from_model(
+                c,
+                include_secret=(
+                    include_secret and c.platform_type == PlatformType.WEBHOOK
+                ),
+            )
+            for c in connections
+        ],
         total=len(connections),
     )
 
@@ -204,7 +219,9 @@ def create_connection(request: HttpRequest, payload: PlatformConnectionCreate):
 
     logger.info(f"Created platform connection {connection.id} ({connection.platform_type})")
 
-    return PlatformConnectionOut.from_model(connection)
+    return PlatformConnectionOut.from_model(
+        connection, include_secret=connection.platform_type == PlatformType.WEBHOOK
+    )
 
 
 @router.get(
@@ -212,7 +229,13 @@ def create_connection(request: HttpRequest, payload: PlatformConnectionCreate):
     response=PlatformConnectionOut,
     tags=["platform-adapters"],
 )
-def get_connection(request: HttpRequest, connection_id: int):
+def get_connection(
+    request: HttpRequest,
+    connection_id: int,
+    include_secret: bool = Query(
+        False, description="Include webhook secret for webhook connections"
+    ),
+):
     """Get a specific platform connection."""
     organization = get_user_organization(request.user)
     if not organization:
@@ -223,7 +246,12 @@ def get_connection(request: HttpRequest, connection_id: int):
     except PlatformConnection.DoesNotExist:
         raise HttpError(404, "Connection not found")
 
-    return PlatformConnectionOut.from_model(connection)
+    return PlatformConnectionOut.from_model(
+        connection,
+        include_secret=(
+            include_secret and connection.platform_type == PlatformType.WEBHOOK
+        ),
+    )
 
 
 @router.patch(
@@ -231,7 +259,14 @@ def get_connection(request: HttpRequest, connection_id: int):
     response=PlatformConnectionOut,
     tags=["platform-adapters"],
 )
-def update_connection(request: HttpRequest, connection_id: int, payload: PlatformConnectionUpdate):
+def update_connection(
+    request: HttpRequest,
+    connection_id: int,
+    payload: PlatformConnectionUpdate,
+    include_secret: bool = Query(
+        False, description="Include webhook secret for webhook connections"
+    ),
+):
     """Update a platform connection."""
     organization = get_user_organization(request.user)
     if not organization:
@@ -255,7 +290,12 @@ def update_connection(request: HttpRequest, connection_id: int, payload: Platfor
 
     connection.save()
 
-    return PlatformConnectionOut.from_model(connection)
+    return PlatformConnectionOut.from_model(
+        connection,
+        include_secret=(
+            include_secret and connection.platform_type == PlatformType.WEBHOOK
+        ),
+    )
 
 
 @router.delete(
@@ -431,8 +471,18 @@ def _dispatch_to_event_system(message: PlatformMessage) -> None:
         from events.dispatcher import dispatch_event
         from events.models import EventType
 
+        event_type = EventType.CHAT_MESSAGE
+        if message.connection.platform_type == PlatformType.WEBHOOK:
+            event_type = EventType.WEBHOOK_RECEIVED
+        elif message.connection.platform_type == PlatformType.SLACK:
+            event_type = EventType.SLACK_MESSAGE
+        elif message.connection.platform_type == PlatformType.DISCORD:
+            event_type = EventType.DISCORD_MESSAGE
+        elif message.connection.platform_type == PlatformType.NOTION:
+            event_type = EventType.NOTION_PAGE_UPDATED
+
         dispatch_event(
-            event_type=EventType.CHAT_MESSAGE,
+            event_type=event_type,
             source_type="platform_message",
             source_id=str(message.message_id),
             organization=message.organization,

@@ -15,10 +15,13 @@ from .context import AgentContext, ViewContext
 from .models import ProjectToolConfig
 from .registry import ToolRegistry
 from .router import AgentRouter
+from .skills import SkillRegistry
 from .schemas import (
     RoutedChatRequest,
     RoutedChatResponse,
     RoutingInfo,
+    SkillInfo,
+    SkillListResponse,
     ToolConfigUpdateRequest,
     ToolEnableRequest,
     ToolInfo,
@@ -28,6 +31,39 @@ from .schemas import (
 
 router = Router(tags=["agents"])
 logger = logging.getLogger(__name__)
+
+
+@router.get("/skills", response=SkillListResponse)
+async def list_skills(request, context: str | None = None, refresh: bool = False):
+    """
+    List registered agent skills.
+
+    Args:
+        request: Django request object
+        context: Optional context filter (e.g., "chat", "document_rag")
+        refresh: Force rescan of skill directories
+    """
+    organization = await aget_user_organization(request.user)
+    if not organization:
+        raise HttpError(403, "User is not associated with any organization")
+
+    registry = SkillRegistry.get_instance()
+    skills = await sync_to_async(registry.list_skills)(context=context, refresh=refresh)
+
+    return SkillListResponse(
+        skills=[
+            SkillInfo(
+                name=skill.name,
+                description=skill.description,
+                license=skill.license,
+                compatibility=skill.compatibility,
+                allowed_tools=skill.allowed_tools,
+                supported_contexts=skill.supported_contexts,
+                metadata=skill.metadata,
+            )
+            for skill in skills
+        ]
+    )
 
 
 @router.get("/tools", response=ToolListResponse)

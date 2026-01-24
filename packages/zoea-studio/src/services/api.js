@@ -1478,6 +1478,108 @@ Current canvas: ${context.canvasName || 'Untitled'}`,
   },
 
   // =========================================================================
+  // Agent Skills
+  // =========================================================================
+
+  /**
+   * Fetch registered agent skills
+   *
+   * @param {Object} params
+   * @param {string} [params.context] - Optional context filter (e.g., "chat")
+   * @returns {Promise<Object>} Response with skills array
+   */
+  async fetchRegisteredSkills({ context = null } = {}) {
+    const params = new URLSearchParams();
+    if (context) {
+      params.append('context', context);
+    }
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    return await apiRequest(`/api/agents/skills${suffix}`);
+  },
+
+  // =========================================================================
+  // Webhooks (Platform Connections)
+  // =========================================================================
+
+  /**
+   * Fetch webhook connections
+   *
+   * @param {Object} params
+   * @param {number} [params.project_id] - Optional project filter
+   * @param {boolean} [params.include_secret] - Include webhook secret in response
+   * @returns {Promise<Object>} Response with connections array
+   */
+  async fetchWebhookConnections({ project_id = null, include_secret = false } = {}) {
+    const params = new URLSearchParams();
+    params.append('platform_type', 'webhook');
+    if (project_id !== null) {
+      params.append('project_id', project_id.toString());
+    }
+    if (include_secret) {
+      params.append('include_secret', 'true');
+    }
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    return await apiRequest(`/api/platform/connections${suffix}`);
+  },
+
+  /**
+   * Create a webhook connection
+   *
+   * @param {Object} payload
+   * @param {string} payload.name - Connection name
+   * @param {string} [payload.description] - Optional description
+   * @param {number} [payload.project_id] - Optional project ID
+   * @param {Object} [payload.config] - Webhook config
+   * @returns {Promise<Object>} Created connection
+   */
+  async createWebhookConnection({ name, description = '', project_id = null, config = {} }) {
+    return await apiRequest('/api/platform/connections', {
+      method: 'POST',
+      body: JSON.stringify({
+        platform_type: 'webhook',
+        name,
+        description,
+        project_id,
+        config,
+      }),
+    });
+  },
+
+  /**
+   * Update a webhook connection
+   *
+   * @param {number} connectionId - Connection ID
+   * @param {Object} payload - Update payload (name, description, status, config)
+   * @param {boolean} [include_secret] - Include webhook secret in response
+   * @returns {Promise<Object>} Updated connection
+   */
+  async updateWebhookConnection(connectionId, payload, include_secret = false) {
+    if (!connectionId) {
+      throw new Error('connectionId is required');
+    }
+    const suffix = include_secret ? '?include_secret=true' : '';
+    return await apiRequest(`/api/platform/connections/${connectionId}${suffix}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /**
+   * Delete a webhook connection
+   *
+   * @param {number} connectionId - Connection ID
+   * @returns {Promise<Object>} Delete response
+   */
+  async deleteWebhookConnection(connectionId) {
+    if (!connectionId) {
+      throw new Error('connectionId is required');
+    }
+    return await apiRequest(`/api/platform/connections/${connectionId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  // =========================================================================
   // Email Thread Attachments
   // =========================================================================
 
