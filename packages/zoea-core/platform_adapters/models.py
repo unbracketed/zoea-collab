@@ -165,7 +165,7 @@ class PlatformConnection(models.Model):
     def get_webhook_url(self) -> str:
         """Get the full webhook URL for this connection."""
         base_url = getattr(settings, "ZOEA_BASE_URL", "http://localhost:8000")
-        return f"{base_url}/api/webhooks/{self.platform_type}/{self.connection_id}"
+        return f"{base_url}/api/platform/webhooks/{self.platform_type}/{self.connection_id}"
 
     def record_message(self) -> None:
         """Record that a message was received."""
