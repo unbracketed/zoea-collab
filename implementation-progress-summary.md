@@ -71,123 +71,192 @@ The refactor aims to unify Zoea around:
 
 ---
 
-## Phase 3: AgentRuntime + Docker 🔲 Not Started
+## Phase 3: Sandboxes + Agent Wrappers ✅ Complete
 
-| Item | Status |
-|------|--------|
-| AgentRuntime interface | 🔲 TODO |
-| Docker runtime with /workspace mount | 🔲 TODO |
-| Bind SkillExecutionHarness to runtime | 🔲 TODO |
+| Item | Status | Location |
+|------|--------|----------|
+| `SandboxConfig` model | ✅ Done | `sandboxes/models.py` |
+| `SandboxSession` model | ✅ Done | `sandboxes/models.py` |
+| `SandboxManager` service | ✅ Done | `sandboxes/manager.py` |
+| `BaseSandboxExecutor` interface | ✅ Done | `sandboxes/executors/base.py` |
+| `TmuxExecutor` implementation | ✅ Done | `sandboxes/executors/tmux.py` |
+| Docker executor | 🔲 TODO | `sandboxes/executors/docker.py` |
+| `ExternalAgentConfig` model | ✅ Done | `agent_wrappers/models.py` |
+| `ExternalAgentRun` model | ✅ Done | `agent_wrappers/models.py` |
+| `BaseAgentWrapper` interface | ✅ Done | `agent_wrappers/wrappers/base.py` |
+| `ClaudeCodeWrapper` | ✅ Done | `agent_wrappers/wrappers/claude_code.py` |
+| `ExternalAgentService` | ✅ Done | `agent_wrappers/service.py` |
+
+### New Apps Created
+
+- **`sandboxes/`** - Execution environment management (tmux, docker, VM)
+- **`agent_wrappers/`** - External agent integration (Claude Code, Codex, etc.)
 
 ---
 
-## Phase 4: Outputs + Adapters 🔲 Not Started
+## Phase 4: Platform Adapters + Output Dispatch ✅ Complete
 
-| Item | Status |
-|------|--------|
-| OutputAdapters interface | 🔲 TODO |
-| Slack adapter | 🔲 TODO |
-| Discord adapter | 🔲 TODO |
-| Email adapter | 🔲 TODO |
-| Webhook adapter | 🔲 TODO |
-| Scheduled triggers (cron, one-shot) | 🔲 TODO |
-| Webhook ingress trigger | 🔲 TODO |
+| Item | Status | Location |
+|------|--------|----------|
+| `PlatformConnection` model | ✅ Done | `platform_adapters/models.py` |
+| `PlatformMessage` model | ✅ Done | `platform_adapters/models.py` |
+| `BasePlatformAdapter` interface | ✅ Done | `platform_adapters/adapters/base.py` |
+| `GenericWebhookAdapter` | ✅ Done | `platform_adapters/adapters/webhook.py` |
+| Platform adapters API | ✅ Done | `platform_adapters/api.py` |
+| `OutputRoute` model | ✅ Done | `output_dispatch/models.py` |
+| `DispatchLog` model | ✅ Done | `output_dispatch/models.py` |
+| `OutputDispatcher` service | ✅ Done | `output_dispatch/dispatcher.py` |
+| Webhook dispatcher | ✅ Done | `output_dispatch/dispatcher.py` |
+| Slack dispatcher | ✅ Done | `output_dispatch/dispatcher.py` |
+| Document dispatcher | ✅ Done | `output_dispatch/dispatcher.py` |
+| `ScheduledEvent` model | ✅ Done | `events/models.py` |
+| `ScheduledEventService` | ✅ Done | `events/scheduler.py` |
+| Extended `EventType` choices | ✅ Done | `events/models.py` |
+
+### New Apps Created
+
+- **`platform_adapters/`** - Unified platform connection management
+- **`output_dispatch/`** - Configurable output routing to destinations
 
 ---
 
-## Phase 5: Cleanup + Docs 🔲 Not Started
+## Phase 5: Cleanup + Docs 🔄 In Progress
 
-| Item | Status |
-|------|--------|
-| Deprecate/fold Conversation model | 🔲 TODO |
-| Update CLI for ExecutionRun | 🔲 TODO |
-| End-to-end tests | 🔲 TODO |
-| Documentation updates | 🔲 TODO |
+| Item | Status | Notes |
+|------|--------|-------|
+| Remove `workspaces` app | ✅ Done | Deleted entirely |
+| Remove `context_clipboards` app | ✅ Done | Deleted entirely |
+| Migrate workspace FK → project FK | ✅ Done | All models updated |
+| Deprecate/fold Conversation model | 🔲 TODO | |
+| Update CLI for ExecutionRun | 🔲 TODO | |
+| End-to-end tests | 🔲 TODO | |
+| Documentation updates | 🔲 TODO | |
 
 ---
 
 ## Files Changed (Recent)
 
-### New Files
+### New Apps (Phase 3-4)
 ```
-packages/zoea-core/execution/__init__.py
-packages/zoea-core/execution/apps.py
-packages/zoea-core/execution/models.py
-packages/zoea-core/execution/admin.py
-packages/zoea-core/execution/migrations/0001_initial.py
+packages/zoea-core/sandboxes/
+├── models.py              - SandboxConfig, SandboxSession
+├── manager.py             - SandboxManager service
+├── executors/base.py      - BaseSandboxExecutor interface
+├── executors/tmux.py      - TmuxExecutor implementation
+└── tests/test_models.py   - 18 tests
 
-packages/zoea-core/channels/__init__.py
-packages/zoea-core/channels/apps.py
-packages/zoea-core/channels/models.py
-packages/zoea-core/channels/admin.py
-packages/zoea-core/channels/migrations/0001_initial.py
+packages/zoea-core/agent_wrappers/
+├── models.py              - ExternalAgentConfig, ExternalAgentRun
+├── service.py             - ExternalAgentService
+├── wrappers/base.py       - BaseAgentWrapper interface
+├── wrappers/claude_code.py - ClaudeCodeWrapper
+└── tests/test_models.py   - 19 tests
 
-packages/zoea-core/langgraph_runtime/__init__.py
-packages/zoea-core/langgraph_runtime/state.py
-packages/zoea-core/langgraph_runtime/nodes.py
-packages/zoea-core/langgraph_runtime/graphs.py
-packages/zoea-core/langgraph_runtime/runtime.py
+packages/zoea-core/platform_adapters/
+├── models.py              - PlatformConnection, PlatformMessage
+├── adapters/base.py       - BasePlatformAdapter interface
+├── adapters/webhook.py    - GenericWebhookAdapter
+├── api.py                 - Webhook receiver endpoints
+└── tests/                 - Adapter and model tests
 
-packages/zoea-core/workflows/builtin/project_activity_summary/__init__.py
-packages/zoea-core/workflows/builtin/project_activity_summary/flow-config.yaml
-packages/zoea-core/workflows/builtin/project_activity_summary/graph.py
-packages/zoea-core/workflows/builtin/project_activity_summary/nodes.py
-packages/zoea-core/workflows/builtin/project_activity_summary/tests.py
+packages/zoea-core/output_dispatch/
+├── models.py              - OutputRoute, DispatchLog
+├── dispatcher.py          - OutputDispatcher service
+└── tests/test_models.py   - 17 tests
+```
+
+### New Files (Phase 1-2)
+```
+packages/zoea-core/execution/
+packages/zoea-core/channels/
+packages/zoea-core/langgraph_runtime/
+packages/zoea-core/workflows/builtin/project_activity_summary/
+packages/zoea-core/events/scheduler.py     - ScheduledEventService
 ```
 
 ### Modified Files
 ```
-packages/zoea-core/workflows/registry.py    - graph_builder discovery
-packages/zoea-core/workflows/runner.py      - LangGraph execution path
-packages/zoea-core/events/harness.py        - from_execution_run()
-packages/zoea-core/events/dispatcher.py     - Updated imports
-packages/zoea-core/events/api.py            - Updated for ExecutionRun
-packages/zoea-core/flows/api.py             - Updated for ExecutionRun
-packages/zoea-core/pyproject.toml           - Added new apps
-packages/zoea-core/zoea/settings.py         - Registered new apps
+packages/zoea-core/events/models.py        - Added ScheduledEvent, extended EventType
+packages/zoea-core/events/api.py           - Added scheduled event endpoints
+packages/zoea-core/workflows/registry.py   - graph_builder discovery
+packages/zoea-core/workflows/runner.py     - LangGraph execution path
+packages/zoea-core/pyproject.toml          - Added new apps + croniter dependency
+packages/zoea-core/zoea/settings.py        - Registered new apps
 ```
 
-### Removed/Deprecated
+### Removed/Deleted
 ```
-packages/zoea-core/events/models.py         - EventTriggerRun removed (use ExecutionRun)
-packages/zoea-core/workflows/models.py      - WorkflowRun removed (use ExecutionRun)
+packages/zoea-core/workspaces/             - Entire app deleted
+packages/zoea-core/context_clipboards/     - Entire app deleted
+packages/zoea-core/cli/commands/workspaces.py
+packages/zoea-core/cli/commands/clipboard.py
 ```
 
 ---
 
 ## Next Steps (Immediate)
 
-1. **Update event dispatcher:**
-   - `events/dispatcher.py` to create ExecutionRun and route to LangGraph
+1. **Implement Docker executor:**
+   - `sandboxes/executors/docker.py` with /workspace mount pattern
+   - Test with Claude Code wrapper
 
-2. **Test full trigger → execution flow:**
-   - EventTrigger → ExecutionRun → LangGraph → outputs
+2. **Wire output dispatch to execution flow:**
+   - Call `OutputDispatcher.dispatch_execution_output()` on ExecutionRun completion
+   - Test webhook and Slack dispatchers end-to-end
 
-3. **Add scheduled event support:**
-   - Create `ScheduledEvent` model
-   - Integrate with Django-Q2 scheduler
-   - Wire to `project_activity_summary` workflow
+3. **Add remaining platform adapters:**
+   - `SlackAdapter` for Slack app integration
+   - `DiscordAdapter` for Discord bot integration
 
-4. **Begin Phase 3: AgentRuntime + Docker:**
-   - Define AgentRuntime interface
-   - Implement Docker executor with /workspace mount
+4. **End-to-end integration tests:**
+   - Webhook → PlatformMessage → EventTrigger → ExecutionRun → OutputDispatch
+   - Scheduled event → ExecutionRun → OutputDispatch
 
 ---
 
 ## Open Questions
 
-1. **Legacy Fallback:** Keep PocketFlow fallback for one release, or cut over immediately?
-2. **Channel Storage:** Store full transcript in DB, or also support `log.jsonl` (hybrid)?
-3. **Docker Runtime Constraints:** What tool/skill constraints beyond ScopedProjectAPI harness?
+1. **Docker Runtime Constraints:** What tool/skill constraints beyond ScopedProjectAPI harness?
+2. **Sandbox Cleanup:** Auto-cleanup stale sessions, or require explicit termination?
+3. **Output Templating:** Use Jinja2 for output templates, or keep simple string formatting?
 
 ---
 
 ## Architecture Diagram
 
 ```
-Sources/Adapters → TriggerEnvelope → TriggerRouter → ExecutionRun → LangGraph Runtime → AgentRuntime → OutputAdapters
-                                                           ↓
-                                                    Channel + ChannelMessage
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         PLATFORM ADAPTERS                                    │
+│  GenericWebhookAdapter, SlackAdapter (TODO), DiscordAdapter (TODO)          │
+│  PlatformConnection + PlatformMessage models                                 │
+└─────────────────────────────────────┬───────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         EVENT SYSTEM                                         │
+│  EventTrigger + ScheduledEvent → EventDispatcher → ExecutionRun             │
+└─────────────────────────────────────┬───────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         LANGGRAPH RUNTIME                                    │
+│  WorkflowRegistry → WorkflowRunner → run_graph() → ExecutionState           │
+└───────────┬─────────────────────────┬───────────────────────────────────────┘
+            │                         │
+            ▼                         ▼
+┌───────────────────────┐  ┌───────────────────────┐
+│   SANDBOX MANAGER     │  │   AGENT WRAPPERS      │
+│   TmuxExecutor        │  │   ClaudeCodeWrapper   │
+│   DockerExecutor(TODO)│  │   ExternalAgentService│
+│   SandboxSession      │  │   ExternalAgentRun    │
+└───────────────────────┘  └───────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         OUTPUT DISPATCH                                      │
+│  OutputRoute → OutputDispatcher → DispatchLog                               │
+│  WebhookDispatcher, SlackDispatcher, DocumentDispatcher                     │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### LangGraph Node Layout (Default Graph)
