@@ -13,7 +13,6 @@ class Migration(migrations.Migration):
         ('chat', '0003_conversation_workspace_and_more'),
         ('organizations', '0006_alter_organization_slug'),
         ('projects', '0004_add_avatar'),
-        ('workspaces', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -36,7 +35,6 @@ class Migration(migrations.Migration):
                 ('initiator_user', models.ForeignKey(blank=True, help_text='User account matched to initiator email', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='initiated_email_threads', to=settings.AUTH_USER_MODEL)),
                 ('organization', models.ForeignKey(help_text='Organization this email thread belongs to', on_delete=django.db.models.deletion.CASCADE, related_name='email_threads', to='organizations.organization')),
                 ('project', models.ForeignKey(blank=True, help_text='Project this email thread belongs to', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='email_threads', to='projects.project')),
-                ('workspace', models.ForeignKey(blank=True, help_text='Workspace this email thread belongs to', null=True, on_delete=django.db.models.deletion.CASCADE, related_name='email_threads', to='workspaces.workspace')),
             ],
             options={
                 'ordering': ['-last_email_at'],

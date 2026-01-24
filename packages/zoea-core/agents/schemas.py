@@ -54,7 +54,6 @@ class RoutedChatRequest(Schema):
 
     message: str
     project_id: int
-    workspace_id: int
 
     # Context for routing
     view_type: str = "chat"

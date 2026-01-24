@@ -12,7 +12,6 @@ class Migration(migrations.Migration):
     dependencies = [
         ("organizations", "0001_initial"),
         ("projects", "0001_initial"),
-        ("workspaces", "0001_initial"),
         ("documents", "0010_alter_collection_options_alter_collection_created_by_and_more"),
         ("events", "0001_initial"),
         ("channels", "0001_initial"),
@@ -213,17 +212,6 @@ class Migration(migrations.Migration):
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="execution_runs",
                         to="projects.project",
-                    ),
-                ),
-                (
-                    "workspace",
-                    models.ForeignKey(
-                        blank=True,
-                        help_text="Optional workspace scope",
-                        null=True,
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="execution_runs",
-                        to="workspaces.workspace",
                     ),
                 ),
                 (

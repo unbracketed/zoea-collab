@@ -2,7 +2,7 @@
 Output collection implementations for tool artifact creation.
 
 Provides concrete implementations of the OutputCollection protocol
-for different contexts (in-memory, conversation, workspace, etc.).
+for different contexts (in-memory, conversation, project, etc.).
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from .base import ToolArtifact
 
 if TYPE_CHECKING:
     from chat.models import Conversation
-    from projects.models import Workspace
+    from projects.models import Project
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ class InMemoryArtifactCollection:
 
         Args:
             context_id: Optional identifier for the context (conversation ID,
-                        workspace ID, etc.). Useful for debugging.
+                        project ID, etc.). Useful for debugging.
         """
         self._artifacts: list[ToolArtifact] = []
         self.context_id = context_id
@@ -123,51 +123,51 @@ class ConversationArtifactCollection(InMemoryArtifactCollection):
         return self._conversation
 
 
-class WorkspaceArtifactCollection(InMemoryArtifactCollection):
+class ProjectArtifactCollection(InMemoryArtifactCollection):
     """
-    Collection that associates artifacts with a workspace.
+    Collection that associates artifacts with a project.
 
-    Artifacts created in this collection are associated with a workspace
-    and can potentially be saved to the workspace's document library.
+    Artifacts created in this collection are associated with a project
+    and can potentially be saved to the project's document library.
 
     Example:
-        collection = WorkspaceArtifactCollection(workspace_id=456)
+        collection = ProjectArtifactCollection(project_id=456)
         tool = MyTool(output_collection=collection)
         tool.forward(...)
 
-        # Artifacts are associated with workspace 456
+        # Artifacts are associated with project 456
         for artifact in collection.artifacts:
             if artifact.type == "image":
-                # Save to workspace document library
-                save_to_library(workspace_id=456, artifact=artifact)
+                # Save to project document library
+                save_to_library(project_id=456, artifact=artifact)
     """
 
     def __init__(
         self,
-        workspace_id: int | None = None,
-        workspace: Workspace | None = None,
+        project_id: int | None = None,
+        project: Project | None = None,
     ):
         """
-        Initialize with workspace context.
+        Initialize with project context.
 
         Args:
-            workspace_id: ID of the workspace
-            workspace: Optional Workspace instance
+            project_id: ID of the project
+            project: Optional Project instance
         """
-        super().__init__(context_id=workspace_id)
-        self._workspace_id = workspace_id
-        self._workspace = workspace
+        super().__init__(context_id=project_id)
+        self._project_id = project_id
+        self._project = project
 
     @property
-    def workspace_id(self) -> int | None:
-        """Get the workspace ID."""
-        if self._workspace_id:
-            return self._workspace_id
-        if self._workspace:
-            return self._workspace.id
+    def project_id(self) -> int | None:
+        """Get the project ID."""
+        if self._project_id:
+            return self._project_id
+        if self._project:
+            return self._project.id
         return None
 
     @property
-    def workspace(self) -> Workspace | None:
-        """Get the workspace instance, if available."""
-        return self._workspace
+    def project(self) -> Project | None:
+        """Get the project instance, if available."""
+        return self._project

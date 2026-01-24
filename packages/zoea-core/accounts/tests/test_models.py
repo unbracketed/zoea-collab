@@ -244,10 +244,9 @@ class TestInitializeUserOrganization:
     """Test the initialize_user_organization utility function."""
 
     def test_initialize_user_organization_creates_complete_setup(self):
-        """Test that initialize_user_organization creates org, project, and workspace."""
+        """Test that initialize_user_organization creates org and project."""
         from accounts.utils import initialize_user_organization
         from projects.models import Project
-        from workspaces.models import Workspace
 
         # Create a user
         user = User.objects.create_user(
@@ -262,11 +261,9 @@ class TestInitializeUserOrganization:
         # Verify all objects were created
         assert 'organization' in result
         assert 'project' in result
-        assert 'workspace' in result
 
         organization = result['organization']
         project = result['project']
-        workspace = result['workspace']
 
         # Verify organization
         assert organization is not None
@@ -289,12 +286,6 @@ class TestInitializeUserOrganization:
         assert project is not None
         assert project.organization.id == organization.id  # Compare IDs due to multi-table inheritance
         assert Project.objects.filter(organization=organization).count() == 1
-
-        # Verify workspace was created by signals
-        assert workspace is not None
-        assert workspace.project == project
-        assert workspace.parent is None  # Root workspace
-        assert Workspace.objects.filter(project=project, parent=None).count() == 1
 
     def test_initialize_user_organization_with_custom_org_name(self):
         """Test creating organization with custom name."""
@@ -415,7 +406,6 @@ class TestInitializeUserOrganization:
         # Verify they have separate organizations
         assert result1['organization'].id != result2['organization'].id
         assert result1['project'].id != result2['project'].id
-        assert result1['workspace'].id != result2['workspace'].id
 
 
 @pytest.mark.django_db
@@ -736,10 +726,8 @@ class TestAuthAPIEndpoints:
         assert data['success'] is True
 
     def test_signup_creates_complete_organization_structure(self, api_client):
-        """Test that signup creates org, project, workspace, and clipboard."""
+        """Test that signup creates org and project."""
         from projects.models import Project
-        from workspaces.models import Workspace
-        from context_clipboards.models import Clipboard
 
         payload = {
             'username': 'fullsetup',
@@ -767,11 +755,3 @@ class TestAuthAPIEndpoints:
         # Verify project
         project = Project.objects.filter(organization=org).first()
         assert project is not None
-
-        # Verify workspace
-        workspace = Workspace.objects.filter(project=project, parent=None).first()
-        assert workspace is not None
-
-        # Verify clipboard
-        clipboard = Clipboard.objects.filter(workspace=workspace, owner=user, is_active=True).first()
-        assert clipboard is not None

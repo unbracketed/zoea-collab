@@ -13,7 +13,6 @@ from organizations.models import OrganizationUser
 from accounts.models import Account
 from documents.models import Markdown
 from projects.models import Project
-from workspaces.models import Workspace
 
 User = get_user_model()
 
@@ -51,34 +50,11 @@ def project_b(organization, user):
 
 
 @pytest.fixture
-def workspace_a(project_a, user):
-    """Create workspace in project A."""
-    return Workspace.objects.create(
-        project=project_a,
-        name="Root Workspace A",
-        created_by=user,
-        parent=None,
-    )
-
-
-@pytest.fixture
-def workspace_b(project_b, user):
-    """Create workspace in project B."""
-    return Workspace.objects.create(
-        project=project_b,
-        name="Root Workspace B",
-        created_by=user,
-        parent=None,
-    )
-
-
-@pytest.fixture
-def document_in_project_a(organization, project_a, workspace_a, user):
+def document_in_project_a(organization, project_a, user):
     """Create a document in project A."""
     return Markdown.objects.create(
         organization=organization,
         project=project_a,
-        workspace=workspace_a,
         name="Document in Project A",
         content="This belongs to Project A",
         created_by=user,
@@ -86,12 +62,11 @@ def document_in_project_a(organization, project_a, workspace_a, user):
 
 
 @pytest.fixture
-def document_in_project_b(organization, project_b, workspace_b, user):
+def document_in_project_b(organization, project_b, user):
     """Create a document in project B."""
     return Markdown.objects.create(
         organization=organization,
         project=project_b,
-        workspace=workspace_b,
         name="Document in Project B",
         content="This belongs to Project B",
         created_by=user,
@@ -222,22 +197,15 @@ class TestDocumentOrganizationIsolation:
         )
         OrganizationUser.objects.create(organization=org1, user=user1)
 
-        # Create project and workspace in org1
+        # Create project in org1
         project1 = Project.objects.create(
             organization=org1, name="Project 1", created_by=user1
-        )
-        workspace1 = Workspace.objects.create(
-            project=project1,
-            name="Workspace 1",
-            created_by=user1,
-            parent=None,
         )
 
         # Create document in org1
         doc1 = Markdown.objects.create(
             organization=org1,
             project=project1,
-            workspace=workspace1,
             name="Org 1 Document",
             created_by=user1,
         )

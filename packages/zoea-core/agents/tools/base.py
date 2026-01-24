@@ -215,7 +215,7 @@ class OutputCollection(Protocol):
 
     Implementations might store artifacts in:
     - A conversation's artifact list (ConversationArtifactCollection)
-    - A workspace's documents folder (WorkspaceDocumentCollection)
+    - A project's documents folder (ProjectArtifactCollection)
     - A temporary in-memory list for testing
 
     Example:
@@ -392,7 +392,6 @@ def log_tool_execution(
     tool_name: str,
     organization=None,
     project=None,
-    workspace=None,
     user: User | None = None,
     agent_name: str = "",
     input_summary: dict[str, Any] | None = None,
@@ -408,7 +407,6 @@ def log_tool_execution(
         tool_name: Name of the tool
         organization: Organization instance
         project: Project instance
-        workspace: Workspace instance
         user: User who triggered the execution
         agent_name: Name of the agent that called the tool
         input_summary: Sanitized input parameters
@@ -430,7 +428,6 @@ def log_tool_execution(
         return ToolExecutionLog.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             user=user,
             tool_name=tool_name,
             agent_name=agent_name,

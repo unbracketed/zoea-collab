@@ -10,7 +10,6 @@ from ninja.errors import HttpError
 
 from accounts.utils import aget_user_organization
 from projects.models import Project
-from workspaces.models import Workspace
 
 from .context import AgentContext, ViewContext
 from .models import ProjectToolConfig
@@ -248,13 +247,8 @@ async def get_routing_info(request, payload: RoutedChatRequest):
         project = await Project.objects.aget(
             id=payload.project_id, organization=organization
         )
-        workspace = await Workspace.objects.aget(
-            id=payload.workspace_id, project=project
-        )
     except Project.DoesNotExist:
         raise HttpError(404, "Project not found")
-    except Workspace.DoesNotExist:
-        raise HttpError(404, "Workspace not found")
 
     # Get document if specified
     document = None
@@ -274,7 +268,6 @@ async def get_routing_info(request, payload: RoutedChatRequest):
 
     context = AgentContext(
         project=project,
-        workspace=workspace,
         view_type=view_type,
         document=document,
         document_ids=payload.document_ids,

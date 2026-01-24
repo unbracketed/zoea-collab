@@ -260,46 +260,6 @@ async def aget_user_default_project(user):
     return await sync_to_async(get_user_default_project)(user)
 
 
-def get_project_default_workspace(project):
-    """
-    Get the default workspace for a project.
-
-    Returns the root workspace (parent=None) for the project. This is used when
-    workspace_id is not specified in API requests.
-
-    Args:
-        project: Project instance
-
-    Returns:
-        Workspace instance or None if no workspaces exist
-
-    Example:
-        workspace = get_project_default_workspace(project)
-        if not workspace:
-            # No workspaces - shouldn't happen if signals work correctly
-            pass
-    """
-    from workspaces.models import Workspace
-
-    if not project:
-        return None
-
-    return Workspace.objects.filter(project=project, parent=None).first()
-
-
-async def aget_project_default_workspace(project):
-    """
-    Get the default workspace for a project (async version).
-
-    Args:
-        project: Project instance
-
-    Returns:
-        Workspace instance or None if no workspaces exist
-    """
-    return await sync_to_async(get_project_default_workspace)(project)
-
-
 def initialize_user_organization(
     user,
     org_name=None,
@@ -313,7 +273,7 @@ def initialize_user_organization(
     1. An organization (Account) with the user as owner
     2. OrganizationUser membership (user added as admin)
     3. OrganizationOwner record
-    4. Default project, workspace, and clipboard (via signals)
+    4. Default project (via signals)
 
     All operations are performed in an atomic transaction - if any step fails,
     everything is rolled back.
@@ -328,12 +288,10 @@ def initialize_user_organization(
         dict with keys:
             - organization: The created Account/Organization instance
             - project: The default Project created by signals
-            - workspace: The default Workspace created by signals
-            - clipboard: The default Clipboard created by signals
 
     Raises:
         ValueError: If organization creation fails
-        RuntimeError: If signals didn't create project/workspace/clipboard
+        RuntimeError: If signals didn't create project
 
     Example:
         from accounts.utils import initialize_user_organization
@@ -343,15 +301,11 @@ def initialize_user_organization(
         result = initialize_user_organization(user)
         org = result['organization']
         project = result['project']
-        workspace = result['workspace']
-        clipboard = result['clipboard']
     """
     from django.db import transaction
     from organizations.models import OrganizationOwner, OrganizationUser
     from accounts.models import Account
     from projects.models import Project
-    from workspaces.models import Workspace
-    from context_clipboards.models import Clipboard
 
     # Generate org name if not provided
     if not org_name:
@@ -383,31 +337,16 @@ def initialize_user_organization(
                 organization_user=org_user,
             )
 
-            # Step 4: Verify project and workspace were created by signals
+            # Step 4: Verify project was created by signals
             project = Project.objects.filter(organization=organization).first()
             if not project:
                 raise RuntimeError(
                     "No project was created! Check that project creation signals are working."
                 )
 
-            workspace = Workspace.objects.filter(project=project, parent=None).first()
-            if not workspace:
-                raise RuntimeError(
-                    "No workspace was created! Check that workspace creation signals are working."
-                )
-
-            # Step 5: Verify clipboard was created by signals
-            clipboard = Clipboard.objects.filter(workspace=workspace, owner=user, is_active=True).first()
-            if not clipboard:
-                raise RuntimeError(
-                    "No clipboard was created! Check that clipboard creation signals are working."
-                )
-
             return {
                 'organization': organization,
                 'project': project,
-                'workspace': workspace,
-                'clipboard': clipboard,
             }
 
     except Exception as e:

@@ -69,9 +69,6 @@ class ExecutionRunRequest(BaseModel):
     project_id: int | None = Field(
         default=None, description="Project ID (uses default if not provided)"
     )
-    workspace_id: int | None = Field(
-        default=None, description="Workspace ID (uses project default if not provided)"
-    )
     background: bool = Field(
         default=False,
         description="If true, execute in background and return immediately with pending status",
@@ -160,8 +157,7 @@ class ExecutionRunDetail(ExecutionRunListItem):
     error: str | None = Field(default=None, description="Error message if failed")
     provider_model: str | None = Field(default=None, description="AI provider/model used")
     task_id: str | None = Field(default=None, description="Background task ID")
-    project_id: int = Field(..., description="Project ID")
-    workspace_id: int = Field(..., description="Workspace ID")
+    project_id: int | None = Field(default=None, description="Project ID")
 
 
 class ExecutionRunListResponse(BaseModel):

@@ -26,14 +26,6 @@ class ChatRequest(BaseModel):
         default=None,
         description="ID of project (uses default if not provided)"
     )
-    workspace_id: int | None = Field(
-        default=None,
-        description="ID of workspace (uses default if not provided)"
-    )
-    clipboard_id: int | None = Field(
-        default=None,
-        description="Active clipboard to expand when message includes the [Clipboard] token",
-    )
     debug: bool = Field(
         default=False,
         description="Enable debug mode to see system instructions in response"

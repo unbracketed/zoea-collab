@@ -3,7 +3,7 @@ Django management command to sync documents from configured sources.
 
 This command pulls documents from configured Source implementations
 (local filesystem, S3, R2, etc.) and creates or updates Document records
-in the database for use in projects and workspaces.
+in the database for use in projects.
 """
 
 from pathlib import Path
@@ -60,13 +60,6 @@ class Command(BaseCommand):
             help='Delete documents that no longer exist in source'
         )
 
-        # Workspace argument
-        parser.add_argument(
-            '--workspace',
-            type=str,
-            help='Target workspace name or ID for documents (uses first workspace if not specified)'
-        )
-
     def handle(self, *args, **options):
         """Main command handler."""
         self.stdout.write('=' * 70)
@@ -88,7 +81,6 @@ class Command(BaseCommand):
             sources,
             dry_run=options['dry_run'],
             delete_missing=options['delete_missing'],
-            workspace_filter=options.get('workspace')
         )
 
     def get_sources(self, options):
@@ -128,7 +120,7 @@ class Command(BaseCommand):
 
         return sources
 
-    def sync_sources(self, sources, dry_run, delete_missing, workspace_filter):
+    def sync_sources(self, sources, dry_run, delete_missing):
         """Sync documents for all sources."""
         total_created = 0
         total_updated = 0
@@ -144,18 +136,6 @@ class Command(BaseCommand):
             self.stdout.write(f'  Type: {source.get_source_type_display()}')
             self.stdout.write(f'  Project: {source.project.name}')
             self.stdout.write(f'  Organization: {source.organization.name}')
-            self.stdout.write('')
-
-            # Get workspace for documents
-            workspace = self.get_workspace(source.project, workspace_filter)
-            if not workspace:
-                self.stdout.write(
-                    self.style.WARNING('  No workspace available - skipping source')
-                )
-                self.stdout.write('')
-                continue
-
-            self.stdout.write(f'  Target workspace: {workspace.name}')
             self.stdout.write('')
 
             # Get source instance
@@ -201,7 +181,6 @@ class Command(BaseCommand):
                         source,
                         source_impl,
                         doc_meta,
-                        workspace,
                         dry_run
                     )
 
@@ -235,7 +214,6 @@ class Command(BaseCommand):
             if delete_missing and not dry_run:
                 existing_docs = Document.objects.filter(
                     project=source.project,
-                    workspace=workspace
                 ).select_subclasses()
 
                 for doc in existing_docs:
@@ -303,33 +281,7 @@ class Command(BaseCommand):
             )
         self.stdout.write('=' * 70)
 
-    def get_workspace(self, project, workspace_filter):
-        """Get target workspace for documents."""
-        if workspace_filter:
-            # Try to get specific workspace
-            if workspace_filter.isdigit():
-                try:
-                    from workspaces.models import Workspace
-                    return Workspace.objects.get(
-                        project=project,
-                        id=int(workspace_filter)
-                    )
-                except Workspace.DoesNotExist:
-                    return None
-            else:
-                try:
-                    from workspaces.models import Workspace
-                    return Workspace.objects.get(
-                        project=project,
-                        name=workspace_filter
-                    )
-                except Workspace.DoesNotExist:
-                    return None
-        else:
-            # Get first workspace for project
-            return project.workspaces.first()
-
-    def sync_document(self, source, source_impl, doc_meta, workspace, dry_run):
+    def sync_document(self, source, source_impl, doc_meta, dry_run):
         """
         Sync a single document from source to database.
 
@@ -340,7 +292,6 @@ class Command(BaseCommand):
         doc_path = doc_meta.path
         existing_doc = Document.objects.filter(
             project=source.project,
-            workspace=workspace,
             name=Path(doc_path).name
         ).select_subclasses().first()
 
@@ -377,7 +328,6 @@ class Command(BaseCommand):
                 # Create new document based on type
                 doc = self.create_document_by_type(
                     extension,
-                    workspace,
                     source.project,
                     source.organization
                 )
@@ -401,12 +351,11 @@ class Command(BaseCommand):
 
         return action
 
-    def create_document_by_type(self, extension, workspace, project, organization):
+    def create_document_by_type(self, extension, project, organization):
         """Create appropriate document subclass based on file extension."""
         # Image types
         if extension in {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg'}:
             return Image(
-                workspace=workspace,
                 project=project,
                 organization=organization
             )
@@ -414,7 +363,6 @@ class Command(BaseCommand):
         # PDF types
         elif extension == '.pdf':
             return PDF(
-                workspace=workspace,
                 project=project,
                 organization=organization
             )
@@ -422,7 +370,6 @@ class Command(BaseCommand):
         # CSV types
         elif extension == '.csv':
             return CSV(
-                workspace=workspace,
                 project=project,
                 organization=organization
             )
@@ -430,7 +377,6 @@ class Command(BaseCommand):
         # Diagram types
         elif extension == '.d2':
             return D2Diagram(
-                workspace=workspace,
                 project=project,
                 organization=organization
             )
@@ -438,7 +384,6 @@ class Command(BaseCommand):
         # Default to Markdown for text files
         else:
             return Markdown(
-                workspace=workspace,
                 project=project,
                 organization=organization
             )

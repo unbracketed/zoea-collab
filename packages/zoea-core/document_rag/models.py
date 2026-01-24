@@ -33,7 +33,6 @@ class RAGSession(models.Model):
     class ContextType(models.TextChoices):
         SINGLE = "single", "Single Document"
         FOLDER = "folder", "Folder Contents"
-        CLIPBOARD = "clipboard", "Clipboard Items"
         COLLECTION = "collection", "Collection"
 
     class Status(models.TextChoices):
@@ -54,12 +53,6 @@ class RAGSession(models.Model):
         on_delete=models.CASCADE,
         related_name="rag_sessions",
         help_text="Project this session belongs to",
-    )
-    workspace = models.ForeignKey(
-        "workspaces.Workspace",
-        on_delete=models.CASCADE,
-        related_name="rag_sessions",
-        help_text="Workspace this session belongs to",
     )
     created_by = models.ForeignKey(
         User,

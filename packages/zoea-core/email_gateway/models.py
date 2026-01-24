@@ -38,14 +38,6 @@ class EmailThread(models.Model):
         blank=True,
         help_text="Project this email thread belongs to"
     )
-    workspace = models.ForeignKey(
-        'workspaces.Workspace',
-        on_delete=models.CASCADE,
-        related_name='email_threads',
-        null=True,
-        blank=True,
-        help_text="Workspace this email thread belongs to"
-    )
     conversation = models.OneToOneField(
         'chat.Conversation',
         on_delete=models.CASCADE,
@@ -138,7 +130,7 @@ class EmailThread(models.Model):
 
         Creates a DocumentCollection with collection_type='attachment' if one
         doesn't exist. The collection is scoped to the thread's organization
-        and workspace.
+        and project.
 
         Args:
             created_by: User to attribute the collection creation to (optional)
@@ -154,7 +146,6 @@ class EmailThread(models.Model):
         collection = DocumentCollection.objects.create(
             organization=self.organization,
             project=self.project,
-            workspace=self.workspace,
             collection_type=CollectionType.ATTACHMENT,
             name=f"Email Attachments: {self.subject[:50]}",
             created_by=created_by or self.initiator_user,

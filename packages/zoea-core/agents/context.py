@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from documents.models import Document
     from projects.models import Project
-    from workspaces.models import Workspace
 
 
 class AgentType(str, Enum):
@@ -41,7 +40,6 @@ class AgentContext:
     Example:
         context = AgentContext(
             project=project,
-            workspace=workspace,
             view_type=ViewContext.DOCUMENT_DETAIL,
             document=document,
         )
@@ -50,7 +48,6 @@ class AgentContext:
 
     # Required context
     project: "Project"
-    workspace: "Workspace"
 
     # View context
     view_type: ViewContext = ViewContext.CHAT

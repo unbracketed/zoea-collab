@@ -12,7 +12,7 @@ from workflows.config import load_workflow_config
 from workflows.context import WorkflowContext
 from workflows.types import WorkflowSpec
 
-from .nodes import ReadContentNode, SummarizeNode
+from workflows.builtin.summarize_content.nodes import ReadContentNode, SummarizeNode
 
 _CONFIG_PATH = Path(__file__).parent / "flow-config.yaml"
 _WORKFLOW_SPEC: WorkflowSpec = load_workflow_config(_CONFIG_PATH)
@@ -23,12 +23,10 @@ def _build_context(state: ExecutionState) -> WorkflowContext:
     context = state.get("context") or {}
     organization = None
     project = None
-    workspace = None
 
     try:
         from accounts.models import Account
         from projects.models import Project
-        from workspaces.models import Workspace
 
         org_id = context.get("organization_id")
         if org_id:
@@ -37,10 +35,6 @@ def _build_context(state: ExecutionState) -> WorkflowContext:
         project_id = context.get("project_id")
         if project_id:
             project = Project.objects.get(id=project_id)
-
-        workspace_id = context.get("workspace_id")
-        if workspace_id:
-            workspace = Workspace.objects.get(id=workspace_id)
     except Exception:
         # Context objects are optional for graph execution; scoped queries will fallback.
         pass
@@ -48,7 +42,6 @@ def _build_context(state: ExecutionState) -> WorkflowContext:
     ctx = WorkflowContext(
         organization=organization,
         project=project,
-        workspace=workspace,
         user=None,
         workflow_slug=_WORKFLOW_SPEC.slug,
         run_id=state.get("run_id"),

@@ -80,7 +80,6 @@ def list_projects(
                 "created_at": project.created_at.isoformat() if project.created_at else None,
             }
             if verbose:
-                data["workspace_count"] = project.workspaces.count()
                 data["description"] = project.description
                 data["working_directory"] = project.working_directory
             return data
@@ -93,8 +92,7 @@ def list_projects(
                 format_date(project.created_at),
             ]
             if verbose:
-                workspace_count = project.workspaces.count()
-                row.extend([str(workspace_count), str(project.id)])
+                row.append(str(project.id))
             return row
 
         # Build table columns
@@ -104,7 +102,7 @@ def list_projects(
             ("Created", "green"),
         ]
         if verbose:
-            columns.extend([("Workspaces", "blue"), ("ID", "dim")])
+            columns.append(("ID", "dim"))
 
         output_list(
             items=list(projects),
@@ -163,10 +161,6 @@ def show_project(
 
             project = projects.first()
 
-        # Get workspace info
-        workspace_count = project.workspaces.count()
-        workspaces = list(project.workspaces.all()[:5])
-
         def build_json(p):
             return {
                 "id": p.id,
@@ -181,11 +175,6 @@ def show_project(
                 "created_at": p.created_at.isoformat() if p.created_at else None,
                 "updated_at": p.updated_at.isoformat() if p.updated_at else None,
                 "created_by": p.created_by.username if p.created_by else None,
-                "workspace_count": workspace_count,
-                "workspaces": [
-                    {"id": w.id, "name": w.name, "created_at": w.created_at.isoformat()}
-                    for w in workspaces
-                ],
             }
 
         def build_panel(p):
@@ -212,22 +201,6 @@ def show_project(
 
             panel = Panel(details, title=f"Project: {p.name}", border_style="cyan")
             console.print(panel)
-
-            # Show workspace count
-            console.print(f"\n[bold]Workspaces:[/] {workspace_count}")
-
-            if workspace_count > 0:
-                table = create_table(
-                    "Recent Workspaces", [("Name", "cyan"), ("Created", "green")]
-                )
-                for workspace in workspaces:
-                    table.add_row(workspace.name, format_date(workspace.created_at))
-                console.print(table)
-
-                if workspace_count > 5:
-                    console.print(
-                        f"\n[dim]... and {workspace_count - 5} more workspaces[/]"
-                    )
 
         output_item(
             item=project,

@@ -17,7 +17,6 @@ from organizations.models import OrganizationUser
 from projects.models import Project
 from transformations import OutputFormat, transform
 from transformations.value_objects import ConversationPayload, MarkdownPayload
-from workspaces.models import Workspace
 
 User = get_user_model()
 
@@ -32,27 +31,23 @@ def user_with_org(db):
 
 
 @pytest.fixture
-def workspace(db, user_with_org):
-    """Create a workspace for testing."""
+def project(db, user_with_org):
+    """Create a project for testing."""
     account = get_user_organization(user_with_org)
-    project = Project.objects.create(
+    return Project.objects.create(
         name="Test Project", description="Test", organization=account
-    )
-    return Workspace.objects.create(
-        name="Test Workspace", project=project
     )
 
 
 @pytest.fixture
-def conversation(db, workspace, user_with_org):
+def conversation(db, project, user_with_org):
     """Create a conversation with messages for testing."""
-    account = workspace.project.organization
+    account = project.organization
 
     conv = Conversation.objects.create(
         agent_name="TestAgent",
         organization=account,
-        project=workspace.project,
-        workspace=workspace,
+        project=project,
         created_by=user_with_org,
     )
 
@@ -124,15 +119,14 @@ class TestConversationToMarkdownTransformer:
         assert "What is the weather like?" in result
         assert "I don't have access to real-time weather data." in result
 
-    def test_transform_empty_conversation(self, workspace, user_with_org):
+    def test_transform_empty_conversation(self, project, user_with_org):
         """Test converting conversation with no messages."""
-        account = workspace.project.organization
+        account = project.organization
 
         empty_conv = Conversation.objects.create(
             agent_name="EmptyAgent",
             organization=account,
-            project=workspace.project,
-            workspace=workspace,
+            project=project,
             created_by=user_with_org,
         )
 

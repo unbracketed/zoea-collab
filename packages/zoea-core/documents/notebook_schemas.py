@@ -25,7 +25,7 @@ class NotebookSchema(BaseModel):
     id: int
     name: str
     description: str | None = None
-    workspace_id: int
+    project_id: int
     owner_id: int
     is_active: bool
     is_recent: bool
@@ -62,7 +62,7 @@ class NotebookDetailResponse(BaseModel):
 class NotebookCreateRequest(BaseModel):
     """Request schema for creating a new notebook."""
 
-    workspace_id: int = Field(..., description="Workspace that will own the notebook")
+    project_id: int = Field(..., description="Project that will own the notebook")
     name: str | None = None
     description: str | None = None
     activate: bool = True
@@ -168,7 +168,7 @@ class NotebookSaveAsDocumentRequest(BaseModel):
     name: str | None = Field(None, description="Name for the created document")
     description: str | None = Field(None, description="Optional document description")
     folder_id: int | None = Field(
-        None, description="Optional folder ID in the same workspace"
+        None, description="Optional folder ID in the same project"
     )
 
 

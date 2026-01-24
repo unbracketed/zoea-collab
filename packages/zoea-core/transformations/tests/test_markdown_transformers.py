@@ -14,7 +14,6 @@ from organizations.models import OrganizationUser
 from projects.models import Project
 from transformations import OutputFormat, transform
 from transformations.value_objects import MarkdownPayload
-from workspaces.models import Workspace
 
 User = get_user_model()
 
@@ -29,26 +28,22 @@ def user_with_org(db):
 
 
 @pytest.fixture
-def workspace(db, user_with_org):
-    """Create a workspace for testing."""
+def project(db, user_with_org):
+    """Create a project for testing."""
     account = get_user_organization(user_with_org)
-    project = Project.objects.create(
+    return Project.objects.create(
         name="Test Project", description="Test", organization=account
-    )
-    return Workspace.objects.create(
-        name="Test Workspace", project=project
     )
 
 
 @pytest.fixture
-def markdown_doc(db, workspace, user_with_org):
+def markdown_doc(db, project, user_with_org):
     """Create a Markdown document for testing."""
-    account = workspace.project.organization
+    account = project.organization
     root_folder = Folder.objects.create(
         name="Root",
         organization=account,
-        project=workspace.project,
-        workspace=workspace,
+        project=project,
         created_by=user_with_org,
     )
 
@@ -75,8 +70,7 @@ The methods section describes our approach.
 The results section contains findings.
 """,
         organization=account,
-        project=workspace.project,
-        workspace=workspace,
+        project=project,
         folder=root_folder,
         created_by=user_with_org,
     )
@@ -129,14 +123,13 @@ class TestMarkdownToOutlineTransformer:
         assert results["title"] == "Results"
         assert len(results["children"]) == 0
 
-    def test_transform_empty_markdown(self, workspace, user_with_org):
+    def test_transform_empty_markdown(self, project, user_with_org):
         """Test converting empty Markdown content."""
-        account = workspace.project.organization
+        account = project.organization
         root_folder = Folder.objects.create(
             name="Root",
             organization=account,
-            project=workspace.project,
-            workspace=workspace,
+            project=project,
             created_by=user_with_org,
         )
 
@@ -144,8 +137,7 @@ class TestMarkdownToOutlineTransformer:
             name="Empty",
             content="",
             organization=account,
-            project=workspace.project,
-            workspace=workspace,
+            project=project,
             folder=root_folder,
             created_by=user_with_org,
         )

@@ -273,23 +273,11 @@ def project(db, organization, user):
 
 
 @pytest.fixture
-def workspace(db, project, user):
-    """Create a test workspace."""
-    from workspaces.models import Workspace
-    return Workspace.objects.create(
-        project=project,
-        name='Test Workspace',
-        created_by=user,
-    )
-
-
-@pytest.fixture
-def conversation(db, organization, project, workspace, user):
+def conversation(db, organization, project, user):
     """Create a test conversation."""
     return Conversation.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         created_by=user,
         title='Test Conversation',
     )
@@ -370,13 +358,13 @@ some code
         assert conversation.artifacts is None
 
     def test_reuses_existing_artifacts_collection(
-        self, conversation, organization, workspace, user
+        self, conversation, organization, project, user
     ):
         """Test that existing artifacts collection is reused."""
         # Pre-create artifacts collection
         existing = DocumentCollection.objects.create(
             organization=organization,
-            workspace=workspace,
+            project=project,
             collection_type=CollectionType.ARTIFACT,
             name='Existing',
             created_by=user,

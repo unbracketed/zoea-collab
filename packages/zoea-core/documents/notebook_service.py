@@ -72,17 +72,17 @@ class NotebookService:
         """
         self.actor = actor
 
-    def get_or_create_active(self, workspace) -> DocumentCollection:
-        """Fetch the active notebook for a workspace/user or create one.
+    def get_or_create_active(self, project) -> DocumentCollection:
+        """Fetch the active notebook for a project/user or create one.
 
         Args:
-            workspace: The workspace to scope the notebook to.
+            project: The project to scope the notebook to.
 
         Returns:
             The active DocumentCollection of type NOTEBOOK.
         """
         notebook = (
-            DocumentCollection.objects.for_workspace(workspace)
+            DocumentCollection.objects.filter(project=project)
             .for_owner(self.actor)
             .notebooks()
             .active()
@@ -92,11 +92,11 @@ class NotebookService:
             return notebook
 
         return DocumentCollection.objects.create(
-            organization=workspace.project.organization,
-            workspace=workspace,
+            organization=project.organization,
+            project=project,
             owner=self.actor,
             collection_type=CollectionType.NOTEBOOK,
-            name=f"{workspace.name} Notebook",
+            name=f"{project.name} Notebook",
             is_active=True,
             activated_at=timezone.now(),
             created_by=self.actor,
@@ -112,9 +112,9 @@ class NotebookService:
         Returns:
             The activated notebook.
         """
-        # Deactivate other notebooks for this user in this workspace
+        # Deactivate other notebooks for this user in this project
         (
-            DocumentCollection.objects.for_workspace(notebook.workspace)
+            DocumentCollection.objects.filter(project=notebook.project)
             .for_owner(notebook.owner)
             .notebooks()
             .filter(is_active=True)

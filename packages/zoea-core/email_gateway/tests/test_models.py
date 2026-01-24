@@ -7,7 +7,6 @@ from django.contrib.auth import get_user_model
 
 from organizations.models import Organization
 from projects.models import Project
-from workspaces.models import Workspace
 from chat.models import Conversation
 
 from email_gateway.models import EmailThread, EmailMessage
@@ -45,21 +44,11 @@ def project(db, organization, user):
 
 
 @pytest.fixture
-def workspace(db, project):
-    """Create a test workspace."""
-    return Workspace.objects.create(
-        project=project,
-        name='Test Workspace'
-    )
-
-
-@pytest.fixture
-def conversation(db, organization, project, workspace, user):
+def conversation(db, organization, project, user):
     """Create a test conversation."""
     return Conversation.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         created_by=user,
         agent_name='TestAgent',
         title='Test Conversation'
@@ -70,7 +59,7 @@ def conversation(db, organization, project, workspace, user):
 class TestEmailThreadModel:
     """Tests for EmailThread model."""
 
-    def test_create_email_thread(self, organization, project, workspace, conversation, user):
+    def test_create_email_thread(self, organization, project, conversation, user):
         """Test creating an email thread."""
         from django.utils import timezone
 
@@ -78,7 +67,6 @@ class TestEmailThreadModel:
         thread = EmailThread.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             conversation=conversation,
             thread_id='<test123@example.com>',
             subject='Test Email Thread',

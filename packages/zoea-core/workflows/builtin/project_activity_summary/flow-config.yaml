@@ -1,0 +1,43 @@
+# Workflow: project_activity_summary
+# Generates a summary of recent project activity from ExecutionRun,
+# ChannelMessage, and Document data. First LangGraph-native workflow.
+
+name: Project Activity Summary
+description: |
+  Gathers activity data from ExecutionRuns, ChannelMessages, and Documents
+  within a configurable lookback period, then generates an LLM-summarized
+  report of project activity.
+
+INPUTS:
+  - name: lookback_hours
+    type: int
+    value: 24
+    description: How many hours back to query for activity data
+    required: false
+
+  - name: include_metrics
+    type: bool
+    value: true
+    description: Include quick stats section in output
+    required: false
+
+  - name: include_failures
+    type: bool
+    value: true
+    description: Include details about failed execution runs
+    required: false
+
+  - name: output_format
+    type: str
+    value: markdown
+    description: Output format (markdown, slack, email)
+    required: false
+
+OUTPUTS:
+  - name: Activity Summary
+    type: MarkdownDocument
+    target: Reports/Activity
+
+SERVICES:
+  - name: AIService
+    ctxref: ai

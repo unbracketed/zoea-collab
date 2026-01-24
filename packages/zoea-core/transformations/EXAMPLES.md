@@ -623,7 +623,6 @@ from accounts.models import Account
 from organizations.models import OrganizationUser
 from documents.models import PDF, Markdown
 from projects.models import Project
-from workspaces.models import Workspace
 from transformations import transform, OutputFormat, clear_registry
 
 User = get_user_model()
@@ -647,30 +646,28 @@ def user_with_org(db):
 
 
 @pytest.fixture
-def workspace(db, user_with_org):
-    """Create workspace."""
+def project(db, user_with_org):
+    """Create project."""
     org = user_with_org.organization_users.first().organization
-    project = Project.objects.create(name="Test Project", organization=org)
-    return Workspace.objects.create(name="Test Workspace", project=project)
+    return Project.objects.create(name="Test Project", organization=org)
 
 
 @pytest.mark.django_db
 class TestPDFTransformers:
     """Test PDF document transformers."""
 
-    def test_pdf_to_markdown(self, workspace, user_with_org):
+    def test_pdf_to_markdown(self, project, user_with_org):
         """Test PDF to Markdown transformation."""
         from transformations.transformers import document  # Trigger registration
 
-        org = workspace.project.organization
+        org = project.organization
 
         pdf = PDF.objects.create(
             name="Test PDF",
             description="A test document",
             file_size=1024,
             organization=org,
-            project=workspace.project,
-            workspace=workspace,
+            project=project,
             created_by=user_with_org,
         )
 
@@ -681,17 +678,16 @@ class TestPDFTransformers:
         assert "**Description:** A test document" in result
         assert "1024 bytes" in result
 
-    def test_pdf_to_json(self, workspace, user_with_org):
+    def test_pdf_to_json(self, project, user_with_org):
         """Test PDF to JSON transformation."""
         from transformations.transformers import document
 
-        org = workspace.project.organization
+        org = project.organization
 
         pdf = PDF.objects.create(
             name="Test PDF",
             organization=org,
-            project=workspace.project,
-            workspace=workspace,
+            project=project,
             created_by=user_with_org,
         )
 

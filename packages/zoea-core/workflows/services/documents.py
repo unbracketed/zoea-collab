@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from accounts.models import Account
     from documents.models import Folder, Markdown
     from projects.models import Project
-    from workspaces.models import Workspace
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +27,10 @@ class DocumentService:
     Handles:
     - Creating Markdown documents
     - Auto-creating folder hierarchies
-    - Setting proper organization/project/workspace scoping
+    - Setting proper organization/project scoping
 
     Example:
-        doc_service = DocumentService(org, project, workspace, user)
+        doc_service = DocumentService(org, project, user)
         doc = await doc_service.create_markdown(
             name="Implementation Plan",
             content="# Plan\n\nDetails...",
@@ -43,8 +42,8 @@ class DocumentService:
         self,
         organization: "Account",
         project: "Project",
-        workspace: "Workspace",
         user: "User",
+        workspace=None,  # Deprecated, ignored
     ):
         """
         Initialize document service with Django context.
@@ -52,12 +51,11 @@ class DocumentService:
         Args:
             organization: The organization for document scoping
             project: The project for document scoping
-            workspace: The workspace for document scoping
             user: The user creating documents
+            workspace: Deprecated, ignored
         """
         self.organization = organization
         self.project = project
-        self.workspace = workspace
         self.user = user
 
     async def create_markdown(
@@ -104,7 +102,6 @@ class DocumentService:
         doc = Markdown.objects.create(
             organization=self.organization,
             project=self.project,
-            workspace=self.workspace,
             name=name,
             content=content,
             description=description,
@@ -136,12 +133,11 @@ class DocumentService:
 
         for part in parts:
             folder, created = Folder.objects.get_or_create(
-                workspace=self.workspace,
+                project=self.project,
                 parent=parent,
                 name=part,
                 defaults={
                     "organization": self.organization,
-                    "project": self.project,
                     "created_by": self.user,
                 },
             )

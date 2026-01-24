@@ -19,7 +19,6 @@ class TriggerEnvelope(TypedDict):
     attachments: list[dict[str, Any]]
     organization_id: int
     project_id: NotRequired[int]
-    workspace_id: NotRequired[int]
 
 
 class AgentProfile(TypedDict, total=False):

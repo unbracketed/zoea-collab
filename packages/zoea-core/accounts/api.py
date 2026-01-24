@@ -148,8 +148,8 @@ async def auth_signup(request, payload: SignupRequest):
     Register a new user account.
 
     Creates a new user with email verification. The user must verify their email
-    before they can log in. An organization with default project and workspace
-    is automatically created via the custom AccountAdapter.
+    before they can log in. An organization with default project is
+    automatically created via the custom AccountAdapter.
 
     Args:
         request: Django request object
@@ -185,7 +185,7 @@ async def auth_signup(request, payload: SignupRequest):
             raise HttpError(400, error_message)
 
         # Save the user (this will trigger our custom adapter)
-        # The adapter automatically creates organization/project/workspace
+        # The adapter automatically creates organization/project
         with transaction.atomic():
             try:
                 user = form.save(request)

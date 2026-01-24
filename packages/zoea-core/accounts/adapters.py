@@ -19,7 +19,7 @@ class AccountAdapter(DefaultAccountAdapter):
     Custom account adapter that creates an organization for new users.
 
     This adapter hooks into the django-allauth signup flow and automatically
-    creates an organization (with default project and workspace) for each new user.
+    creates an organization (with default project) for each new user.
     """
 
     def save_user(self, request, user, form, commit=True):
@@ -30,7 +30,7 @@ class AccountAdapter(DefaultAccountAdapter):
         created but before they're saved to the database. We use this hook to:
         1. Save the user to the database
         2. Create an organization for them
-        3. Set up their default project and workspace
+        3. Set up their default project
 
         Args:
             request: The HTTP request object
@@ -50,7 +50,6 @@ class AccountAdapter(DefaultAccountAdapter):
                 # This creates:
                 # - Organization (Account) with user as owner
                 # - Default project (via signals)
-                # - Default workspace (via signals)
                 result = initialize_user_organization(user)
 
                 logger.info(

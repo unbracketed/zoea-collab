@@ -149,7 +149,14 @@ class SkillExecutionContext:
         allowed_external_domains: frozenset[str] | None = None,
         rate_limit_per_domain: int = 10,
     ) -> SkillExecutionContext:
-        \"\"\"Backward-compatible alias for from_execution_run.\"\"\"\n+        return cls.from_execution_run(\n+            trigger_run,\n+            allowed_document_types=allowed_document_types,\n+            max_documents_per_run=max_documents_per_run,\n+            allowed_external_domains=allowed_external_domains,\n+            rate_limit_per_domain=rate_limit_per_domain,\n+        )
+        """Backward-compatible alias for from_execution_run."""
+        return cls.from_execution_run(
+            trigger_run,
+            allowed_document_types=allowed_document_types,
+            max_documents_per_run=max_documents_per_run,
+            allowed_external_domains=allowed_external_domains,
+            rate_limit_per_domain=rate_limit_per_domain,
+        )
 
 
 # =============================================================================

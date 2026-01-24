@@ -1,4 +1,5 @@
 # Generated manually for initial Channels models.
+# Modified: Removed workspace FK
 
 from django.db import migrations, models
 import django.db.models.deletion
@@ -10,7 +11,6 @@ class Migration(migrations.Migration):
     dependencies = [
         ("organizations", "0001_initial"),
         ("projects", "0001_initial"),
-        ("workspaces", "0001_initial"),
     ]
 
     operations = [
@@ -42,17 +42,6 @@ class Migration(migrations.Migration):
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="channels",
                         to="projects.project",
-                    ),
-                ),
-                (
-                    "workspace",
-                    models.ForeignKey(
-                        blank=True,
-                        help_text="Optional workspace scope for this channel",
-                        null=True,
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="channels",
-                        to="workspaces.workspace",
                     ),
                 ),
             ],

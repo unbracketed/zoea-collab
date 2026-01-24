@@ -13,7 +13,6 @@ from accounts.utils import get_user_organization
 from file_search import FileSearchRegistry
 from file_search.exceptions import StoreError
 from projects.models import Project
-from workspaces.models import Workspace
 
 from .models import (
     D2Diagram,
@@ -71,7 +70,6 @@ def list_documents(
     document_type: str | None = None,
     folder_id: int | None = None,
     project_id: int | None = None,
-    workspace_id: int | None = None,
     include_previews: bool = True,
     include_system: bool = Query(False, description="Include system/hidden folders and documents"),
 ):
@@ -84,8 +82,6 @@ def list_documents(
     - search: Search in document name and description
     - document_type: Filter by document type (Image, PDF, Markdown, CSV, D2Diagram, ReactFlowDiagram)
     - project_id: Restrict results to a specific project (must belong to user's organization)
-    - workspace_id: Restrict results to a specific workspace (must belong to user's organization)
-      When both project_id and workspace_id are provided, the workspace must belong to the project.
     """
     # Get user's organization
     organization = get_user_organization(request.user)
@@ -95,7 +91,7 @@ def list_documents(
     queryset = (
         Document.objects.select_subclasses()
         .filter(organization=organization, is_trashed=False)
-        .select_related("organization", "project", "workspace", "created_by", "folder")
+        .select_related("organization", "project", "created_by", "folder")
     )
 
     # Apply search filter
@@ -129,24 +125,17 @@ def list_documents(
             # Filter where the subclass exists (not null)
             queryset = queryset.filter(**{filter_path: False})
 
-    if folder_id:
-        folder = _get_folder(folder_id, organization)
-        queryset = queryset.filter(folder=folder)
-    else:
-        folder = None
-
+    project = None
     if project_id:
         project = _get_project(project_id, organization)
         queryset = queryset.filter(project=project)
-    else:
-        project = None
 
-    if workspace_id:
-        workspace = _get_workspace(workspace_id, organization)
-        if project and workspace.project_id != project.id:
-            raise HttpError(400, "Workspace must belong to the selected project")
-
-        queryset = queryset.filter(workspace=workspace)
+    if folder_id:
+        folder = _get_folder(folder_id, organization)
+        # Validate folder belongs to the project if both are specified
+        if project and folder.project_id != project.id:
+            raise HttpError(400, "Folder must belong to the selected project")
+        queryset = queryset.filter(folder=folder)
 
     # Exclude system/hidden folders unless explicitly included
     if not include_system:
@@ -245,7 +234,7 @@ def create_document_from_artifact(
     Security:
     - File path must be within MEDIA_ROOT (no directory traversal)
     - File must exist
-    - User must have access to the specified workspace
+    - User must have access to the specified project
     """
     from pathlib import Path
 
@@ -253,8 +242,8 @@ def create_document_from_artifact(
     if not organization:
         raise HttpError(403, "User has no organization")
 
-    # Get and validate workspace
-    workspace = _get_workspace(payload.workspace_id, organization)
+    # Get and validate project
+    project = _get_project(payload.project_id, organization)
 
     # Security validation: ensure file path is within MEDIA_ROOT
     try:
@@ -282,13 +271,13 @@ def create_document_from_artifact(
     folder = None
     if payload.folder_id:
         folder = _get_folder(payload.folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
+        if folder.project_id != project.id:
+            raise HttpError(400, "Folder must belong to the selected project")
 
     # Create document using ToolArtifactService
     service = ToolArtifactService(
         organization=organization,
-        workspace=workspace,
+        project=project,
         created_by=request.user,
     )
 
@@ -353,21 +342,15 @@ def import_directory(
         raise HttpError(403, "User has no organization")
 
     project = _get_project(payload.project_id, organization)
-    workspace = _get_workspace(payload.workspace_id, organization)
-    if workspace.project_id != project.id:
-        raise HttpError(400, "Workspace must belong to the selected project")
 
     folder = None
     if payload.folder_id:
         folder = _get_folder(payload.folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
 
     try:
         service = DocumentImportService(
             organization=organization,
             project=project,
-            workspace=workspace,
             created_by=request.user,
             base_folder=folder,
             create_root_folder=payload.create_root_folder,
@@ -389,7 +372,6 @@ def import_archive(
     request: HttpRequest,
     archive_file: UploadedFile = File(...),
     project_id: int = Form(...),
-    workspace_id: int = Form(...),
     folder_id: int | None = Form(None),
     create_root_folder: bool = Form(True),
     root_folder_name: str | None = Form(None),
@@ -401,22 +383,16 @@ def import_archive(
         raise HttpError(403, "User has no organization")
 
     project = _get_project(project_id, organization)
-    workspace = _get_workspace(workspace_id, organization)
-    if workspace.project_id != project.id:
-        raise HttpError(400, "Workspace must belong to the selected project")
 
     folder = None
     if folder_id:
         folder = _get_folder(folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
 
     try:
         normalized_conflict = (on_conflict or "rename").strip().lower()
         service = DocumentImportService(
             organization=organization,
             project=project,
-            workspace=workspace,
             created_by=request.user,
             base_folder=folder,
             create_root_folder=create_root_folder,
@@ -434,7 +410,7 @@ def import_archive(
 @router.get("/documents/folders", response=list[FolderOut], tags=["documents"])
 def list_folders(
     request: HttpRequest,
-    workspace_id: int | None = None,
+    project_id: int | None = None,
     parent_id: int | None = None,
     include_system: bool = Query(False, description="Include system/hidden folders"),
 ):
@@ -443,15 +419,15 @@ def list_folders(
         raise HttpError(403, "User has no organization")
 
     queryset = Folder.objects.filter(organization=organization).select_related(
-        "parent", "workspace", "project", "organization"
+        "parent", "project", "organization"
     )
 
     if not include_system:
         queryset = queryset.filter(is_system=False)
 
-    if workspace_id:
-        workspace = _get_workspace(workspace_id, organization)
-        queryset = queryset.filter(workspace=workspace)
+    if project_id:
+        project = _get_project(project_id, organization)
+        queryset = queryset.filter(project=project)
 
     if parent_id is not None:
         if parent_id == 0:
@@ -470,18 +446,17 @@ def create_folder(request: HttpRequest, payload: FolderCreateRequest):
     if not organization:
         raise HttpError(403, "User has no organization")
 
-    workspace = _get_workspace(payload.workspace_id, organization)
+    project = _get_project(payload.project_id, organization)
     parent = None
     if payload.parent_id:
         parent = _get_folder(payload.parent_id, organization)
-        if parent.workspace_id != workspace.id:
-            raise HttpError(400, "Parent folder must belong to the same workspace")
+        if parent.project_id != project.id:
+            raise HttpError(400, "Parent folder must belong to the same project")
 
     folder = Folder.objects.create(
         name=payload.name,
         description=payload.description or "",
-        workspace=workspace,
-        project=workspace.project,
+        project=project,
         organization=organization,
         parent=parent,
         created_by=request.user,
@@ -519,8 +494,8 @@ def update_folder(request: HttpRequest, folder_id: int, payload: FolderUpdateReq
             parent = _get_folder(payload.parent_id, organization)
             if parent.id == folder.id or parent.is_descendant_of(folder):
                 raise HttpError(400, "Cannot move folder inside itself")
-            if parent.workspace_id != folder.workspace_id:
-                raise HttpError(400, "Parent folder must belong to the same workspace")
+            if parent.project_id != folder.project_id:
+                raise HttpError(400, "Parent folder must belong to the same project")
             folder.parent = parent
 
     folder.save()
@@ -569,7 +544,7 @@ def get_document(
 
         document = (
             Document.objects.select_subclasses()
-            .select_related("organization", "project", "workspace", "created_by", "folder")
+            .select_related("organization", "project", "created_by", "folder")
             .get(**filters)
         )
         return _serialize_document(document, request, include_preview=include_preview)
@@ -594,21 +569,13 @@ def create_d2_document(request: HttpRequest, payload: D2DiagramCreateRequest):
     except Project.DoesNotExist as exc:
         raise HttpError(404, "Project not found") from exc
 
-    try:
-        workspace = Workspace.objects.get(id=payload.workspace_id, project=project)
-    except Workspace.DoesNotExist as exc:
-        raise HttpError(404, "Workspace not found") from exc
-
     folder = None
     if payload.folder_id:
         folder = _get_folder(payload.folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
 
     document = D2Diagram.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name=payload.name,
         description=payload.description or "",
         content=payload.content,
@@ -633,21 +600,13 @@ def create_mermaid_document(request: HttpRequest, payload: MermaidDiagramCreateR
     except Project.DoesNotExist as exc:
         raise HttpError(404, "Project not found") from exc
 
-    try:
-        workspace = Workspace.objects.get(id=payload.workspace_id, project=project)
-    except Workspace.DoesNotExist as exc:
-        raise HttpError(404, "Workspace not found") from exc
-
     folder = None
     if payload.folder_id:
         folder = _get_folder(payload.folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
 
     document = MermaidDiagram.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name=payload.name,
         description=payload.description or "",
         content=payload.content,
@@ -672,21 +631,13 @@ def create_markdown_document(request: HttpRequest, payload: MarkdownCreateReques
     except Project.DoesNotExist as exc:
         raise HttpError(404, "Project not found") from exc
 
-    try:
-        workspace = Workspace.objects.get(id=payload.workspace_id, project=project)
-    except Workspace.DoesNotExist as exc:
-        raise HttpError(404, "Workspace not found") from exc
-
     folder = None
     if payload.folder_id:
         folder = _get_folder(payload.folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
 
     document = Markdown.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name=payload.name,
         description=payload.description or "",
         content=payload.content,
@@ -738,21 +689,13 @@ def create_excalidraw_document(request: HttpRequest, payload: ExcalidrawDiagramC
     except Project.DoesNotExist as exc:
         raise HttpError(404, "Project not found") from exc
 
-    try:
-        workspace = Workspace.objects.get(id=payload.workspace_id, project=project)
-    except Workspace.DoesNotExist as exc:
-        raise HttpError(404, "Workspace not found") from exc
-
     folder = None
     if payload.folder_id:
         folder = _get_folder(payload.folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
 
     document = ExcalidrawDiagram.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name=payload.name,
         description=payload.description or "",
         content=payload.content,
@@ -807,21 +750,13 @@ def create_yoopta_document(request: HttpRequest, payload: YooptaDocumentCreateRe
     except Project.DoesNotExist as exc:
         raise HttpError(404, "Project not found") from exc
 
-    try:
-        workspace = Workspace.objects.get(id=payload.workspace_id, project=project)
-    except Workspace.DoesNotExist as exc:
-        raise HttpError(404, "Workspace not found") from exc
-
     folder = None
     if payload.folder_id:
         folder = _get_folder(payload.folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
 
     document = YooptaDocument.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name=payload.name,
         description=payload.description or "",
         content=payload.content,
@@ -907,32 +842,24 @@ def upload_image_document(
     image_file: UploadedFile = File(...),
     name: str = Form(...),
     project_id: int = Form(...),
-    workspace_id: int = Form(...),
     description: str | None = Form(""),
     folder_id: int | None = Form(None),
 ):
-    """Upload an image file as a document scoped to a project and workspace."""
+    """Upload an image file as a document scoped to a project."""
     organization = get_user_organization(request.user)
     if not organization:
         raise HttpError(403, "User has no organization")
 
     project = _get_project(project_id, organization)
-    workspace = _get_workspace(workspace_id, organization)
-
-    if workspace.project_id != project.id:
-        raise HttpError(400, "Workspace must belong to the selected project")
 
     folder = None
     if folder_id:
         folder = _get_folder(folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
 
     document_name = name.strip() or image_file.name or "Image"
     document = Image.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name=document_name,
         description=description or "",
         image_file=image_file,
@@ -950,26 +877,19 @@ def upload_pdf_document(
     pdf_file: UploadedFile = File(...),
     name: str = Form(...),
     project_id: int = Form(...),
-    workspace_id: int = Form(...),
     description: str | None = Form(""),
     folder_id: int | None = Form(None),
 ):
-    """Upload a PDF file as a document scoped to a project and workspace."""
+    """Upload a PDF file as a document scoped to a project."""
     organization = get_user_organization(request.user)
     if not organization:
         raise HttpError(403, "User has no organization")
 
     project = _get_project(project_id, organization)
-    workspace = _get_workspace(workspace_id, organization)
-
-    if workspace.project_id != project.id:
-        raise HttpError(400, "Workspace must belong to the selected project")
 
     folder = None
     if folder_id:
         folder = _get_folder(folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
 
     # Validate content type
     content_type = getattr(pdf_file, "content_type", "")
@@ -980,7 +900,6 @@ def upload_pdf_document(
     document = PDF.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name=document_name,
         description=description or "",
         pdf_file=pdf_file,
@@ -997,26 +916,21 @@ def upload_docx_document(
     docx_file: UploadedFile = File(...),
     name: str = Form(...),
     project_id: int = Form(...),
-    workspace_id: int = Form(...),
     description: str | None = Form(""),
     folder_id: int | None = Form(None),
 ):
-    """Upload a Word document (.docx) scoped to a project and workspace."""
+    """Upload a Word document (.docx) scoped to a project."""
     organization = get_user_organization(request.user)
     if not organization:
         raise HttpError(403, "User has no organization")
 
     project = _get_project(project_id, organization)
-    workspace = _get_workspace(workspace_id, organization)
-
-    if workspace.project_id != project.id:
-        raise HttpError(400, "Workspace must belong to the selected project")
 
     folder = None
     if folder_id:
         folder = _get_folder(folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
+        if folder.project_id != project.id:
+            raise HttpError(400, "Folder must belong to the selected project")
 
     # Validate content type
     content_type = getattr(docx_file, "content_type", "")
@@ -1031,7 +945,6 @@ def upload_docx_document(
     document = WordDocument.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name=document_name,
         description=description or "",
         docx_file=docx_file,
@@ -1068,26 +981,21 @@ def upload_xlsx_document(
     xlsx_file: UploadedFile = File(...),
     name: str = Form(...),
     project_id: int = Form(...),
-    workspace_id: int = Form(...),
     description: str | None = Form(""),
     folder_id: int | None = Form(None),
 ):
-    """Upload an Excel spreadsheet (.xlsx) scoped to a project and workspace."""
+    """Upload an Excel spreadsheet (.xlsx) scoped to a project."""
     organization = get_user_organization(request.user)
     if not organization:
         raise HttpError(403, "User has no organization")
 
     project = _get_project(project_id, organization)
-    workspace = _get_workspace(workspace_id, organization)
-
-    if workspace.project_id != project.id:
-        raise HttpError(400, "Workspace must belong to the selected project")
 
     folder = None
     if folder_id:
         folder = _get_folder(folder_id, organization)
-        if folder.workspace_id != workspace.id:
-            raise HttpError(400, "Folder must belong to the selected workspace")
+        if folder.project_id != project.id:
+            raise HttpError(400, "Folder must belong to the selected project")
 
     # Validate content type
     content_type = getattr(xlsx_file, "content_type", "")
@@ -1102,7 +1010,6 @@ def upload_xlsx_document(
     document = SpreadsheetDocument.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name=document_name,
         description=description or "",
         xlsx_file=xlsx_file,
@@ -1141,7 +1048,7 @@ def move_document(request: HttpRequest, document_id: int, payload: DocumentMoveR
 
     try:
         document = Document.objects.select_related(
-            "organization", "project", "workspace", "created_by", "folder"
+            "organization", "project", "created_by", "folder"
         ).get(id=document_id, organization=organization)
     except Document.DoesNotExist as exc:
         raise HttpError(404, "Document not found") from exc
@@ -1149,10 +1056,8 @@ def move_document(request: HttpRequest, document_id: int, payload: DocumentMoveR
     folder = None
     if payload.folder_id:
         folder = _get_folder(payload.folder_id, organization)
-        if document.workspace and folder.workspace_id != document.workspace_id:
-            document.workspace = folder.workspace
+        if folder.project_id != document.project_id:
             document.project = folder.project
-            document.organization = folder.organization
 
     document.folder = folder
     document.save()
@@ -1167,13 +1072,13 @@ def move_document(request: HttpRequest, document_id: int, payload: DocumentMoveR
 @router.get("/documents/trash", response=list[DocumentOut], tags=["documents"])
 def list_trashed_documents(
     request: HttpRequest,
-    workspace_id: int | None = None,
+    project_id: int | None = None,
 ):
     """
     List all trashed documents for the authenticated user's organization.
 
     Query parameters:
-    - workspace_id: Optional workspace ID to filter trashed documents
+    - project_id: Optional project ID to filter trashed documents
     """
     organization = get_user_organization(request.user)
     if not organization:
@@ -1182,13 +1087,13 @@ def list_trashed_documents(
     queryset = (
         Document.objects.select_subclasses()
         .filter(organization=organization, is_trashed=True)
-        .select_related("organization", "project", "workspace", "created_by")
+        .select_related("organization", "project", "created_by")
         .order_by("-trashed_at")
     )
 
-    if workspace_id:
-        workspace = _get_workspace(workspace_id, organization)
-        queryset = queryset.filter(workspace=workspace)
+    if project_id:
+        project = _get_project(project_id, organization)
+        queryset = queryset.filter(project=project)
 
     return [_serialize_document(doc, request, include_preview=True) for doc in queryset]
 
@@ -1259,8 +1164,8 @@ def restore_document(request: HttpRequest, document_id: int, folder_id: int | No
     # Validate target folder if provided
     if folder_id:
         folder = _get_folder(folder_id, organization)
-        if document.workspace_id and folder.workspace_id != document.workspace_id:
-            raise HttpError(400, "Target folder must belong to the same workspace")
+        if folder.project_id != document.project_id:
+            raise HttpError(400, "Target folder must belong to the same project")
 
     document.restore_from_trash(folder_id)
     return {"success": True}
@@ -1286,16 +1191,6 @@ def permanently_delete_document(request: HttpRequest, document_id: int):
     return {"success": True}
 
 
-def _get_workspace(workspace_id: int, organization):
-    try:
-        return Workspace.objects.select_related("project__organization").get(
-            id=workspace_id,
-            project__organization=organization,
-        )
-    except Workspace.DoesNotExist as exc:
-        raise HttpError(404, "Workspace not found") from exc
-
-
 def _get_project(project_id: int, organization):
     try:
         return Project.objects.select_related("organization").get(
@@ -1308,7 +1203,7 @@ def _get_project(project_id: int, organization):
 
 def _get_folder(folder_id: int, organization):
     try:
-        return Folder.objects.select_related("organization", "project", "workspace").get(
+        return Folder.objects.select_related("organization", "project").get(
             id=folder_id,
             organization=organization,
         )
@@ -1330,7 +1225,6 @@ def _serialize_folder(folder: Folder) -> FolderOut:
         is_system=folder.is_system,
         organization_id=folder.organization_id,
         project_id=folder.project_id,
-        workspace_id=folder.workspace_id,
         path=folder.get_path(),
         level=folder.level,
         ancestors=ancestors,
@@ -1396,7 +1290,6 @@ def _serialize_document(
         "organization_id": document.organization.id,
         "organization_name": document.organization.name,
         "project_id": document.project_id,
-        "workspace_id": document.workspace_id,
         "document_type": document.get_type_name(),
         "created_at": document.created_at,
         "updated_at": document.updated_at,

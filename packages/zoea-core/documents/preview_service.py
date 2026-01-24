@@ -93,7 +93,6 @@ def ensure_preview(document: Document, *, preview_kind: str = "thumbnail", force
             document=document,
             organization=document.organization,
             project=document.project,
-            workspace=document.workspace,
             preview_kind=preview_kind,
         )
 

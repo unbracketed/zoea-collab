@@ -195,7 +195,6 @@ def index_chat_message(message, *, backend: str | None = None) -> None:
         "role": message.role,
         "organization_id": str(conversation.organization_id),
         "project_id": str(conversation.project_id),
-        "workspace_id": str(conversation.workspace_id),
     }
 
     if conversation.created_by_id:
@@ -236,7 +235,6 @@ def index_email_message(email_message, *, backend: str | None = None) -> None:
         "conversation_id": str(thread.conversation_id),
         "organization_id": str(thread.organization_id),
         "project_id": str(thread.project_id),
-        "workspace_id": str(thread.workspace_id),
         "sender": email_message.sender,
         "recipient": email_message.recipient,
         "subject": email_message.subject,
@@ -366,8 +364,6 @@ def _build_document_metadata(document) -> dict:
 
     if document.project_id:
         metadata["project_id"] = str(document.project_id)
-    if document.workspace_id:
-        metadata["workspace_id"] = str(document.workspace_id)
     if document.folder_id:
         metadata["folder_id"] = str(document.folder_id)
     if document.created_by_id:

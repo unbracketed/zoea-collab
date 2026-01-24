@@ -2,15 +2,14 @@
 Management command to initialize a local user with full setup.
 
 This command creates or uses an existing user, creates an organization,
-and automatically sets up the default project and workspace. Perfect for
+and automatically sets up the default project. Perfect for
 local development and initial setup.
 
 The command will:
 1. Create a new user or use an existing one
 2. Create an organization and make the user the owner
 3. Automatically create a default project (via signals)
-4. Automatically create a default workspace (via signals)
-5. Optionally load demo documents from the demo-docs directory
+4. Optionally load demo documents from the demo-docs directory
 
 Usage:
     # Create a new user with all defaults
@@ -44,13 +43,12 @@ from organizations.models import OrganizationOwner, OrganizationUser
 from accounts.models import Account
 from documents.models import D2Diagram, Folder, Markdown
 from projects.models import Project
-from workspaces.models import Workspace
 
 User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = 'Initialize a local user with organization, project, and workspace'
+    help = 'Initialize a local user with organization and project'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -137,10 +135,8 @@ class Command(BaseCommand):
             for org_user in existing_orgs:
                 org = org_user.organization
                 projects = Project.objects.filter(organization=org)
-                workspaces = Workspace.objects.filter(project__organization=org)
                 self.stdout.write(f'  - {org.name}')
                 self.stdout.write(f'    Projects: {projects.count()}')
-                self.stdout.write(f'    Workspaces: {workspaces.count()}')
 
             self.stdout.write('')
 
@@ -184,24 +180,24 @@ class Command(BaseCommand):
         self._make_user_owner(account, org_user)
         self.stdout.write(self.style.SUCCESS(f'✓ Made {user.username} the organization owner'))
 
-        # Step 5: Verify project and workspace were created by signals
+        # Step 5: Verify project was created by signals
         self.stdout.write('')
-        self.stdout.write(self.style.HTTP_INFO('Step 4: Verifying Project and Workspace'))
+        self.stdout.write(self.style.HTTP_INFO('Step 4: Verifying Project'))
         self.stdout.write('-' * 60)
 
-        project, workspace = self._verify_project_and_workspace(account)
+        project = self._verify_project(account)
 
         # Step 6: Load demo documents if requested
         folders_created = 0
         docs_created = 0
-        if options.get('demo_docs') and workspace:
+        if options.get('demo_docs') and project:
             self.stdout.write('')
             self.stdout.write(self.style.HTTP_INFO('Step 5: Loading Demo Documents'))
             self.stdout.write('-' * 60)
 
             demo_docs_path = options.get('demo_docs_path')
             folders_created, docs_created = self._load_demo_docs(
-                workspace, user, demo_docs_path
+                project, user, demo_docs_path
             )
 
             if folders_created or docs_created:
@@ -214,7 +210,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING('No demo documents were loaded'))
 
         # Display comprehensive summary
-        self._display_summary(user, account, project, workspace, folders_created, docs_created)
+        self._display_summary(user, account, project, folders_created, docs_created)
 
     def _get_or_create_user(self, username, email, password, use_existing):
         """Get or create a user."""
@@ -275,8 +271,8 @@ class Command(BaseCommand):
             account.delete()
             raise CommandError(f'Error creating organization owner: {str(e)}')
 
-    def _verify_project_and_workspace(self, account):
-        """Verify that the default project and workspace were created by signals."""
+    def _verify_project(self, account):
+        """Verify that the default project was created by signals."""
         # Get the project created by the signal
         projects = Project.objects.filter(organization=account)
 
@@ -284,29 +280,15 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.ERROR('✗ No project was created! Check that signals are working.')
             )
-            project = None
-            workspace = None
-        else:
-            project = projects.first()
-            self.stdout.write(self.style.SUCCESS(f'✓ Project created: {project.name}'))
-            self.stdout.write(f'  Working directory: {project.working_directory}')
+            return None
 
-            # Get the workspace created by the signal
-            workspaces = Workspace.objects.filter(project=project)
-
-            if not workspaces.exists():
-                self.stdout.write(
-                    self.style.ERROR('✗ No workspace was created! Check that signals are working.')
-                )
-                workspace = None
-            else:
-                workspace = workspaces.first()
-                self.stdout.write(self.style.SUCCESS(f'✓ Workspace created: {workspace.name}'))
-
-        return project, workspace
+        project = projects.first()
+        self.stdout.write(self.style.SUCCESS(f'✓ Project created: {project.name}'))
+        self.stdout.write(f'  Working directory: {project.working_directory}')
+        return project
 
     def _display_summary(
-        self, user, account, project, workspace, folders_created=0, docs_created=0
+        self, user, account, project, folders_created=0, docs_created=0
     ):
         """Display a comprehensive summary of everything created."""
         self.stdout.write('')
@@ -348,14 +330,6 @@ class Command(BaseCommand):
                 )
             self.stdout.write('')
 
-        # Workspace details
-        if workspace:
-            self.stdout.write(self.style.HTTP_INFO('Workspace Details:'))
-            self.stdout.write(f'  Name: {workspace.name}')
-            self.stdout.write('  Type: Root workspace (no parent)')
-            self.stdout.write(f'  Full Path: {workspace.get_full_path()}')
-            self.stdout.write('')
-
         # Demo documents details
         if docs_created or folders_created:
             self.stdout.write(self.style.HTTP_INFO('Demo Documents:'))
@@ -368,25 +342,23 @@ class Command(BaseCommand):
         self.stdout.write(f'  Organization: /admin/accounts/account/{account.id}/change/')
         if project:
             self.stdout.write(f'  Project: /admin/projects/project/{project.id}/change/')
-        if workspace:
-            self.stdout.write(f'  Workspace: /admin/workspaces/workspace/{workspace.id}/change/')
         self.stdout.write('')
 
         # Next steps
         self.stdout.write(self.style.HTTP_INFO('Next Steps:'))
         self.stdout.write('  1. Log in to the admin interface with these credentials')
         self.stdout.write('  2. The project working directory will be created automatically when needed')
-        self.stdout.write('  3. You can create additional projects and workspaces as needed')
+        self.stdout.write('  3. You can create additional projects as needed')
         self.stdout.write('')
 
-    def _load_demo_docs(self, workspace, user, demo_docs_path=None):
-        """Load demo documents from the demo-docs directory into the workspace.
+    def _load_demo_docs(self, project, user, demo_docs_path=None):
+        """Load demo documents from the demo-docs directory into the project.
 
         Scans the demo-docs directory recursively, creating Folder instances for
         subdirectories and Markdown/D2Diagram instances for .md and .d2 files.
 
         Args:
-            workspace: The Workspace to load documents into
+            project: The Project to load documents into
             user: The User who will own the documents
             demo_docs_path: Optional custom path to demo docs directory
 
@@ -422,7 +394,8 @@ class Command(BaseCommand):
                     parent_folder = folder_map.get(rel_path.parent)
 
                 folder = Folder.objects.create(
-                    workspace=workspace,
+                    project=project,
+                    organization=project.organization,
                     name=item.name,
                     parent=parent_folder,
                     created_by=user,
@@ -455,13 +428,9 @@ class Command(BaseCommand):
                     'content': content,
                     'created_by': user,
                     'folder': parent_folder,
+                    'project': project,
+                    'organization': project.organization,
                 }
-
-                # If no folder, we need to explicitly set org/project/workspace
-                if not parent_folder:
-                    doc_kwargs['workspace'] = workspace
-                    doc_kwargs['project'] = workspace.project
-                    doc_kwargs['organization'] = workspace.project.organization
 
                 if item.suffix.lower() == '.md':
                     Markdown.objects.create(**doc_kwargs)

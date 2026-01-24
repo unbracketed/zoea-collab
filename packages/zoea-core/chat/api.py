@@ -17,17 +17,13 @@ from ninja.errors import HttpError
 from accounts.models import Account
 from accounts.utils import (
     aget_user_organization,
-    get_project_default_workspace,
     get_user_default_project,
 )
 from agents.context import AgentContext, AgentType, ViewContext
 from agents.router import AgentRouter
 from agents.skills import SKILL_LOADER_TOOL_NAME, build_skills_context_block
-from context_clipboards.models import Clipboard
-from context_clipboards.services import render_clipboard_to_markdown
 from documents.models import Document, Image
 from projects.models import Project
-from workspaces.models import Workspace
 
 from .agent_service import ChatAgentService
 from .code_block_extractor import create_artifacts_from_tool_outputs
@@ -83,10 +79,9 @@ async def chat(request, payload: ChatRequest):
     user_message_content = context["user_message_content"]
     image_contents = context["image_contents"]
     project = context["project"]
-    workspace = context["workspace"]
 
     # Build agent context for routing
-    agent_context = await _build_agent_context(payload, project, workspace)
+    agent_context = await _build_agent_context(payload, project)
 
     # Route to determine agent type and tools
     route_result = await sync_to_async(_route_request)(agent_context)
@@ -130,10 +125,9 @@ async def chat(request, payload: ChatRequest):
     )
     if context["created_new_conversation"]:
         logger.info(
-            "Created new conversation %s in project %s / workspace %s",
+            "Created new conversation %s in project %s",
             conversation.id,
             project.name,
-            workspace.name,
         )
     else:
         logger.info("Continuing conversation %s", conversation.id)
@@ -290,7 +284,7 @@ async def _convert_artifacts_to_response(
     return result
 
 
-async def _build_agent_context(payload: ChatRequest, project, workspace) -> AgentContext:
+async def _build_agent_context(payload: ChatRequest, project) -> AgentContext:
     """Build AgentContext from request payload."""
     # Parse view type
     view_type = ViewContext.CHAT
@@ -307,7 +301,6 @@ async def _build_agent_context(payload: ChatRequest, project, workspace) -> Agen
 
     return AgentContext(
         project=project,
-        workspace=workspace,
         view_type=view_type,
         document=document,
         document_ids=payload.document_ids,
@@ -449,9 +442,9 @@ Organization Context:
 
 
 @router.get("/conversations", response=ConversationListResponse)
-async def list_conversations(request, project_id: int = None, workspace_id: int = None):
+async def list_conversations(request, project_id: int = None):
     """
-    List all conversations for the current user, optionally filtered by project/workspace.
+    List all conversations for the current user, optionally filtered by project.
 
     Returns conversations ordered by most recently updated first.
     Each conversation includes basic metadata and message count.
@@ -459,7 +452,6 @@ async def list_conversations(request, project_id: int = None, workspace_id: int 
     Args:
         request: Django request object
         project_id: Optional project ID to filter by
-        workspace_id: Optional workspace ID to filter by
 
     Returns:
         List of conversations with metadata
@@ -486,10 +478,6 @@ async def list_conversations(request, project_id: int = None, workspace_id: int 
         # Apply project filter if provided
         if project_id:
             conversations_query = conversations_query.filter(project_id=project_id)
-
-        # Apply workspace filter if provided
-        if workspace_id:
-            conversations_query = conversations_query.filter(workspace_id=workspace_id)
 
         conversations = conversations_query.annotate(
             message_count=Count('messages')
@@ -701,7 +689,6 @@ def _prepare_chat_context(request, organization, payload):
     """
     Perform all database operations for a chat request inside a single transaction.
     """
-    CLIPBOARD_TOKEN = "[Clipboard]"
     user = request.user
 
     with transaction.atomic():
@@ -719,22 +706,10 @@ def _prepare_chat_context(request, organization, payload):
             if not project:
                 raise HttpError(400, "No projects found. Please create a project first.")
 
-        if payload.workspace_id:
-            try:
-                workspace = Workspace.objects.get(id=payload.workspace_id, project=project)
-            except Workspace.DoesNotExist:
-                raise HttpError(
-                    404, f"Workspace {payload.workspace_id} not found or access denied"
-                )
-        else:
-            workspace = get_project_default_workspace(project)
-            if not workspace:
-                raise HttpError(400, f"No workspaces found for project {project.name}.")
-
         if payload.conversation_id:
             try:
                 conversation = Conversation.objects.select_related(
-                    "organization", "project", "workspace", "created_by"
+                    "organization", "project", "created_by"
                 ).get(
                     id=payload.conversation_id,
                     organization=organization,
@@ -750,50 +725,14 @@ def _prepare_chat_context(request, organization, payload):
             conversation = Conversation.objects.create(
                 organization=organization,
                 project=project,
-                workspace=workspace,
                 created_by=user,
                 agent_name=payload.agent_name,
                 title="",
             )
             created_new = True
 
-        # Expand clipboard token if present
         processed_message = payload.message
         image_contents: list[dict] = []
-        if payload.clipboard_id and CLIPBOARD_TOKEN in processed_message:
-            try:
-                clipboard = Clipboard.objects.select_related(
-                    "workspace__project__organization"
-                ).get(id=payload.clipboard_id, owner=user, workspace=workspace)
-            except Clipboard.DoesNotExist as exc:
-                raise HttpError(404, "Clipboard not found or access denied") from exc
-
-            clipboard_text = render_clipboard_to_markdown(clipboard, include_metadata=False)
-
-            # Collect image attachments from clipboard items
-            for item in clipboard.items.select_related("content_type"):
-                if (
-                    item.content_type
-                    and item.content_type.app_label == "documents"
-                    and item.content_type.model == "document"
-                ):
-                    try:
-                        doc = Document.objects.select_subclasses().get(pk=item.object_id)
-                    except Document.DoesNotExist:
-                        continue
-                    if isinstance(doc, Image) and getattr(doc, "image_file", None):
-                        try:
-                            file_path = doc.image_file.path
-                            mime, _ = mimetypes.guess_type(doc.image_file.name)
-                            mime = mime or "image/png"
-                            with open(file_path, "rb") as f:
-                                b64 = base64.b64encode(f.read()).decode("utf-8")
-                            data_url = f"data:{mime};base64,{b64}"
-                            image_contents.append({"type": "image_url", "image_url": {"url": data_url}})
-                        except Exception:
-                            continue
-
-            processed_message = processed_message.replace(CLIPBOARD_TOKEN, clipboard_text or "")
 
         user_message = Message.objects.create(
             conversation=conversation,
@@ -847,7 +786,6 @@ def _prepare_chat_context(request, organization, payload):
         return {
             "account": account,
             "project": project,
-            "workspace": workspace,
             "conversation": conversation,
             "conversation_messages": conversation_messages,
             "created_new_conversation": created_new,

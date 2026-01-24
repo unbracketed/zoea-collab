@@ -9,7 +9,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from organizations.models import Organization, OrganizationUser
 from projects.models import Project
-from workspaces.models import Workspace
 from chat.models import Conversation, Message
 from documents.models import FileDocument, Folder
 
@@ -51,15 +50,6 @@ def project(db, organization, user):
 
 
 @pytest.fixture
-def workspace(db, project):
-    """Create a test workspace."""
-    return Workspace.objects.create(
-        project=project,
-        name='Test Workspace'
-    )
-
-
-@pytest.fixture
 def email_message(db, organization, project):
     """Create a test email message ready for processing."""
     return EmailMessage.objects.create(
@@ -85,7 +75,7 @@ class TestEmailProcessingService:
     """Tests for EmailProcessingService."""
 
     def test_process_email_creates_thread_and_message(
-        self, service, email_message, user, organization, project, workspace
+        self, service, email_message, user, organization, project
     ):
         """Test that processing creates EmailThread and chat Message."""
         result = service.process_email(email_message.id)
@@ -144,7 +134,7 @@ class TestEmailProcessingService:
         assert result is False
 
     def test_thread_resolution_via_references(
-        self, service, organization, user, project, workspace
+        self, service, organization, user, project
     ):
         """Test that replies are linked via References header."""
         # First email creates a thread
@@ -177,7 +167,7 @@ class TestEmailProcessingService:
         assert first_email.email_thread.email_count == 2
 
     def test_thread_resolution_via_in_reply_to(
-        self, service, organization, user, project, workspace
+        self, service, organization, user, project
     ):
         """Test that replies are linked via In-Reply-To header."""
         # First email creates a thread
@@ -209,7 +199,7 @@ class TestEmailProcessingService:
         assert reply_email.email_thread == first_email.email_thread
 
     def test_thread_creation_for_new_email(
-        self, service, organization, user, project, workspace
+        self, service, organization, user, project
     ):
         """Test that new emails create new threads."""
         email1 = EmailMessage.objects.create(
@@ -240,7 +230,7 @@ class TestEmailProcessingService:
         assert email1.email_thread.conversation != email2.email_thread.conversation
 
     def test_conversation_title_from_subject(
-        self, service, organization, user, project, workspace
+        self, service, organization, user, project
     ):
         """Test that conversation title is set from email subject."""
         email_msg = EmailMessage.objects.create(
@@ -258,7 +248,7 @@ class TestEmailProcessingService:
         assert 'Email: Important Discussion Topic' in conversation.title
 
     def test_uses_stripped_text_over_body_plain(
-        self, service, organization, user, project, workspace
+        self, service, organization, user, project
     ):
         """Test that stripped_text is preferred over body_plain."""
         email_msg = EmailMessage.objects.create(
@@ -279,10 +269,6 @@ class TestEmailProcessingService:
         self, service, organization, user, project
     ):
         """Attachments are converted to FileDocuments in a hidden folder."""
-        # Note: Project creation auto-creates a default workspace via signal
-        from accounts.utils import get_project_default_workspace
-        default_workspace = get_project_default_workspace(project)
-
         email_msg = EmailMessage.objects.create(
             organization=None,
             message_id='<with-attachments@example.com>',
@@ -319,7 +305,7 @@ class TestEmailProcessingService:
         thread = email_msg.email_thread
         assert thread.attachment_folder is not None
         assert thread.attachment_folder.is_system is True
-        assert thread.attachment_folder.workspace == default_workspace
+        assert thread.attachment_folder.project == project
 
         attachments = list(email_msg.stored_attachments.all())
         assert all(a.document_id for a in attachments)

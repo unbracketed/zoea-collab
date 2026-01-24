@@ -127,3 +127,90 @@ class ManualDispatchRequest(BaseModel):
                 "document_ids": [1, 2, 3],
             }
         }
+
+
+# =============================================================================
+# Scheduled Event Schemas
+# =============================================================================
+
+
+class ScheduledEventCreate(BaseModel):
+    """Schema for creating a scheduled event."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    description: str = Field(default="", max_length=2000)
+    trigger_id: int = Field(..., description="ID of the EventTrigger to execute")
+    schedule_type: str = Field(..., description="'oneshot' or 'cron'")
+    scheduled_at: datetime | None = Field(
+        default=None, description="For oneshot: when to execute (ISO format)"
+    )
+    cron_expression: str = Field(
+        default="", max_length=100, description="For cron: cron expression"
+    )
+    timezone_name: str = Field(default="UTC", max_length=50)
+    event_data: dict = Field(default_factory=dict)
+    is_enabled: bool = Field(default=True)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "Daily Report",
+                "description": "Generate daily activity report",
+                "trigger_id": 1,
+                "schedule_type": "cron",
+                "cron_expression": "0 9 * * 1-5",
+                "timezone_name": "America/New_York",
+                "event_data": {"report_type": "summary"},
+                "is_enabled": True,
+            }
+        }
+
+
+class ScheduledEventUpdate(BaseModel):
+    """Schema for updating a scheduled event."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    scheduled_at: datetime | None = None
+    cron_expression: str | None = Field(default=None, max_length=100)
+    timezone_name: str | None = Field(default=None, max_length=50)
+    event_data: dict | None = None
+    is_enabled: bool | None = None
+
+
+class ScheduledEventResponse(BaseModel):
+    """Response schema for a scheduled event."""
+
+    id: int
+    name: str
+    description: str
+    trigger_id: int
+    trigger_name: str
+    schedule_type: str
+    scheduled_at: datetime | None
+    cron_expression: str
+    timezone_name: str
+    event_data: dict
+    is_enabled: bool
+    next_run_at: datetime | None
+    last_run_at: datetime | None
+    run_count: int
+    created_at: datetime
+    updated_at: datetime
+    created_by_id: int | None
+
+    class Config:
+        from_attributes = True
+
+
+class ScheduleTypeInfo(BaseModel):
+    """Information about a schedule type."""
+
+    value: str
+    label: str
+
+
+class ScheduleTypesResponse(BaseModel):
+    """Response with available schedule types."""
+
+    schedule_types: list[ScheduleTypeInfo]

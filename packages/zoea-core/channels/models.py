@@ -25,14 +25,6 @@ class Channel(models.Model):
         blank=True,
         help_text="Optional project scope for this channel",
     )
-    workspace = models.ForeignKey(
-        "workspaces.Workspace",
-        on_delete=models.CASCADE,
-        related_name="channels",
-        null=True,
-        blank=True,
-        help_text="Optional workspace scope for this channel",
-    )
 
     adapter_type = models.CharField(
         max_length=50,

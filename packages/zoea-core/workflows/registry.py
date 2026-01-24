@@ -155,7 +155,6 @@ class WorkflowRegistry:
         config_path: Path,
         graph_id: Optional[str] = None,
         graph_builder: Optional[Callable] = None,
-        legacy_flow_builder: Optional[Callable] = None,
     ) -> None:
         """
         Register a workflow by slug.
@@ -165,13 +164,11 @@ class WorkflowRegistry:
             config_path: Path to flow-config.yaml
             graph_id: Optional graph identifier (defaults to slug)
             graph_builder: Optional callable that returns a LangGraph graph
-            legacy_flow_builder: Optional legacy PocketFlow builder
         """
         self._workflows[slug] = {
             "config_path": config_path,
             "graph_id": graph_id or slug,
             "graph_builder": graph_builder,
-            "legacy_flow_builder": legacy_flow_builder,
         }
         logger.debug(f"Registered workflow: {slug}")
 
@@ -202,10 +199,8 @@ class WorkflowRegistry:
             if not config_path.exists():
                 continue
 
-            # Try to import graph builder (preferred)
+            # Import graph builder
             graph_builder = None
-            legacy_flow_builder = None
-
             graph_module_path = workflow_dir / "graph.py"
             if graph_module_path.exists():
                 try:
@@ -215,21 +210,11 @@ class WorkflowRegistry:
                         f"Could not import graph builder for {workflow_dir.name}: {e}"
                     )
 
-            flow_module_path = workflow_dir / "flow.py"
-            if flow_module_path.exists() and graph_builder is None:
-                try:
-                    legacy_flow_builder = _import_flow_builder(flow_module_path)
-                except Exception as e:
-                    logger.warning(
-                        f"Could not import legacy flow builder for {workflow_dir.name}: {e}"
-                    )
-
             self.register(
                 workflow_dir.name,
                 config_path,
                 graph_id=workflow_dir.name,
                 graph_builder=graph_builder,
-                legacy_flow_builder=legacy_flow_builder,
             )
 
 
@@ -259,27 +244,3 @@ def _import_graph_builder(graph_module_path: Path) -> Callable:
     return module.build_graph
 
 
-def _import_flow_builder(flow_module_path: Path) -> Callable:
-    """
-    Dynamically import a build_flow function from a workflow module.
-
-    Args:
-        flow_module_path: Path to flow.py file
-
-    Returns:
-        The build_flow callable
-
-    Raises:
-        ImportError: If module can't be loaded or build_flow not found
-    """
-    spec = importlib.util.spec_from_file_location("flow", flow_module_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Could not load module spec from {flow_module_path}")
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    if not hasattr(module, "build_flow"):
-        raise ImportError(f"Module {flow_module_path} has no build_flow function")
-
-    return module.build_flow

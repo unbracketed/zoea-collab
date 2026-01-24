@@ -10,7 +10,6 @@ from django.contrib.auth import get_user_model
 from documents.models import YooptaDocument
 from organizations.models import Organization
 from projects.models import Project
-from workspaces.models import Workspace
 
 
 User = get_user_model()
@@ -28,15 +27,6 @@ def project(organization):
     return Project.objects.create(
         organization=organization,
         name="Test Project",
-    )
-
-
-@pytest.fixture
-def workspace(project):
-    """Create a test workspace."""
-    return Workspace.objects.create(
-        project=project,
-        name="Test Workspace",
     )
 
 
@@ -107,12 +97,11 @@ def sample_yoopta_content():
 class TestYooptaDocumentModel:
     """Tests for YooptaDocument model."""
 
-    def test_create_yoopta_document(self, organization, project, workspace):
+    def test_create_yoopta_document(self, organization, project):
         """Test creating a YooptaDocument."""
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Test Document",
             content='{"block-1": {"id": "block-1", "meta": {"order": 0}, "value": []}}',
         )
@@ -122,31 +111,29 @@ class TestYooptaDocumentModel:
         assert doc.yoopta_version == "4.0"
         assert doc.get_type_name() == "YooptaDocument"
 
-    def test_get_text_content_empty(self, organization, project, workspace):
+    def test_get_text_content_empty(self, organization, project):
         """Test get_text_content with empty content."""
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Empty Document",
             content="",
         )
 
         assert doc.get_text_content() == ""
 
-    def test_get_text_content_empty_object(self, organization, project, workspace):
+    def test_get_text_content_empty_object(self, organization, project):
         """Test get_text_content with empty JSON object."""
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Empty JSON Document",
             content="{}",
         )
 
         assert doc.get_text_content() == ""
 
-    def test_get_text_content_simple(self, organization, project, workspace):
+    def test_get_text_content_simple(self, organization, project):
         """Test get_text_content with a simple paragraph."""
         content = {
             "block-1": {
@@ -165,14 +152,13 @@ class TestYooptaDocumentModel:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Simple Document",
             content=json.dumps(content),
         )
 
         assert doc.get_text_content() == "Hello world"
 
-    def test_get_text_content_formatted_text(self, organization, project, workspace):
+    def test_get_text_content_formatted_text(self, organization, project):
         """Test get_text_content preserves text from formatted spans."""
         content = {
             "block-1": {
@@ -196,7 +182,6 @@ class TestYooptaDocumentModel:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Formatted Document",
             content=json.dumps(content),
         )
@@ -204,13 +189,12 @@ class TestYooptaDocumentModel:
         assert doc.get_text_content() == "Hello bold and italic"
 
     def test_get_text_content_multiple_blocks(
-        self, organization, project, workspace, sample_yoopta_content
+        self, organization, project, sample_yoopta_content
     ):
         """Test get_text_content with multiple blocks ordered correctly."""
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Multi-block Document",
             content=json.dumps(sample_yoopta_content),
         )
@@ -227,7 +211,7 @@ class TestYooptaDocumentModel:
         # Check order is preserved (heading should come before paragraph)
         assert text.index("Welcome to Yoopta") < text.index("This is a")
 
-    def test_get_text_content_unordered_blocks(self, organization, project, workspace):
+    def test_get_text_content_unordered_blocks(self, organization, project):
         """Test that blocks are sorted by meta.order regardless of dict order."""
         content = {
             "block-z": {
@@ -250,7 +234,6 @@ class TestYooptaDocumentModel:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Unordered Blocks Document",
             content=json.dumps(content),
         )
@@ -260,12 +243,11 @@ class TestYooptaDocumentModel:
         # Text should be in order by meta.order, not dict key order
         assert text.index("First") < text.index("Second") < text.index("Third")
 
-    def test_get_text_content_invalid_json(self, organization, project, workspace):
+    def test_get_text_content_invalid_json(self, organization, project):
         """Test get_text_content with invalid JSON returns raw content."""
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Invalid JSON Document",
             content="not valid json {",
         )
@@ -273,7 +255,7 @@ class TestYooptaDocumentModel:
         # Should return the raw content as fallback
         assert doc.get_text_content() == "not valid json {"
 
-    def test_get_text_content_list_items(self, organization, project, workspace):
+    def test_get_text_content_list_items(self, organization, project):
         """Test get_text_content extracts text from list items."""
         content = {
             "block-1": {
@@ -290,7 +272,6 @@ class TestYooptaDocumentModel:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="List Document",
             content=json.dumps(content),
         )
@@ -300,7 +281,7 @@ class TestYooptaDocumentModel:
         assert "Item B" in text
         assert "Item C" in text
 
-    def test_get_text_content_code_block(self, organization, project, workspace):
+    def test_get_text_content_code_block(self, organization, project):
         """Test get_text_content extracts code block content."""
         content = {
             "block-1": {
@@ -319,7 +300,6 @@ class TestYooptaDocumentModel:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Code Document",
             content=json.dumps(content),
         )
@@ -328,7 +308,7 @@ class TestYooptaDocumentModel:
         assert "const x = 42;" in text
         assert "console.log(x);" in text
 
-    def test_get_text_content_nested_elements(self, organization, project, workspace):
+    def test_get_text_content_nested_elements(self, organization, project):
         """Test get_text_content handles nested element structures."""
         content = {
             "block-1": {
@@ -354,7 +334,6 @@ class TestYooptaDocumentModel:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Nested Elements Document",
             content=json.dumps(content),
         )
@@ -367,7 +346,7 @@ class TestYooptaDocumentModel:
 class TestFileSearchIntegration:
     """Tests for YooptaDocument integration with file search."""
 
-    def test_file_search_uses_text_content(self, organization, project, workspace):
+    def test_file_search_uses_text_content(self, organization, project):
         """Test that file search backend extracts text content correctly."""
         from file_search.base import FileSearchStore
 
@@ -388,7 +367,6 @@ class TestFileSearchIntegration:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Searchable Document",
             content=json.dumps(content),
         )
@@ -436,19 +414,18 @@ class TestFileSearchIntegration:
 class TestYooptaDocumentExport:
     """Tests for YooptaDocument export methods."""
 
-    def test_get_markdown_content_empty(self, organization, project, workspace):
+    def test_get_markdown_content_empty(self, organization, project):
         """Test get_markdown_content with empty content."""
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Empty Document",
             content="",
         )
 
         assert doc.get_markdown_content() == ""
 
-    def test_get_markdown_content_heading(self, organization, project, workspace):
+    def test_get_markdown_content_heading(self, organization, project):
         """Test get_markdown_content converts headings correctly."""
         content = {
             "block-1": {
@@ -480,7 +457,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Heading Document",
             content=json.dumps(content),
         )
@@ -489,7 +465,7 @@ class TestYooptaDocumentExport:
         assert "# Main Title" in md
         assert "## Subtitle" in md
 
-    def test_get_markdown_content_formatted_text(self, organization, project, workspace):
+    def test_get_markdown_content_formatted_text(self, organization, project):
         """Test get_markdown_content preserves inline formatting."""
         content = {
             "block-1": {
@@ -515,7 +491,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Formatted Document",
             content=json.dumps(content),
         )
@@ -525,7 +500,7 @@ class TestYooptaDocumentExport:
         assert "*italic*" in md
         assert "`code`" in md
 
-    def test_get_markdown_content_lists(self, organization, project, workspace):
+    def test_get_markdown_content_lists(self, organization, project):
         """Test get_markdown_content converts lists correctly."""
         content = {
             "block-1": {
@@ -551,7 +526,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="List Document",
             content=json.dumps(content),
         )
@@ -562,7 +536,7 @@ class TestYooptaDocumentExport:
         assert "1. One" in md
         assert "2. Two" in md
 
-    def test_get_markdown_content_code_block(self, organization, project, workspace):
+    def test_get_markdown_content_code_block(self, organization, project):
         """Test get_markdown_content converts code blocks correctly."""
         content = {
             "block-1": {
@@ -583,7 +557,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Code Document",
             content=json.dumps(content),
         )
@@ -593,7 +566,7 @@ class TestYooptaDocumentExport:
         assert "print('hello')" in md
         assert "```" in md
 
-    def test_get_markdown_content_blockquote(self, organization, project, workspace):
+    def test_get_markdown_content_blockquote(self, organization, project):
         """Test get_markdown_content converts blockquotes correctly."""
         content = {
             "block-1": {
@@ -613,7 +586,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Quote Document",
             content=json.dumps(content),
         )
@@ -621,7 +593,7 @@ class TestYooptaDocumentExport:
         md = doc.get_markdown_content()
         assert "> A wise quote" in md
 
-    def test_get_markdown_content_link(self, organization, project, workspace):
+    def test_get_markdown_content_link(self, organization, project):
         """Test get_markdown_content converts links correctly."""
         content = {
             "block-1": {
@@ -647,7 +619,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Link Document",
             content=json.dumps(content),
         )
@@ -655,19 +626,18 @@ class TestYooptaDocumentExport:
         md = doc.get_markdown_content()
         assert "[this site](https://example.com)" in md
 
-    def test_get_html_content_empty(self, organization, project, workspace):
+    def test_get_html_content_empty(self, organization, project):
         """Test get_html_content with empty content."""
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Empty Document",
             content="",
         )
 
         assert doc.get_html_content() == ""
 
-    def test_get_html_content_heading(self, organization, project, workspace):
+    def test_get_html_content_heading(self, organization, project):
         """Test get_html_content converts headings correctly."""
         content = {
             "block-1": {
@@ -687,7 +657,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Heading Document",
             content=json.dumps(content),
         )
@@ -695,7 +664,7 @@ class TestYooptaDocumentExport:
         html = doc.get_html_content()
         assert "<h1>Main Title</h1>" in html
 
-    def test_get_html_content_formatted_text(self, organization, project, workspace):
+    def test_get_html_content_formatted_text(self, organization, project):
         """Test get_html_content preserves inline formatting."""
         content = {
             "block-1": {
@@ -718,7 +687,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Formatted Document",
             content=json.dumps(content),
         )
@@ -727,7 +695,7 @@ class TestYooptaDocumentExport:
         assert "<strong>bold</strong>" in html
         assert "<em>italic</em>" in html
 
-    def test_get_html_content_lists(self, organization, project, workspace):
+    def test_get_html_content_lists(self, organization, project):
         """Test get_html_content converts lists correctly."""
         content = {
             "block-1": {
@@ -743,7 +711,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="List Document",
             content=json.dumps(content),
         )
@@ -753,7 +720,7 @@ class TestYooptaDocumentExport:
         assert "<li>Item</li>" in html
         assert "</ul>" in html
 
-    def test_get_html_content_escapes_special_chars(self, organization, project, workspace):
+    def test_get_html_content_escapes_special_chars(self, organization, project):
         """Test get_html_content properly escapes HTML special characters."""
         content = {
             "block-1": {
@@ -772,7 +739,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="XSS Test Document",
             content=json.dumps(content),
         )
@@ -781,7 +747,7 @@ class TestYooptaDocumentExport:
         assert "<script>" not in html
         assert "&lt;script&gt;" in html
 
-    def test_get_html_content_link(self, organization, project, workspace):
+    def test_get_html_content_link(self, organization, project):
         """Test get_html_content converts links correctly."""
         content = {
             "block-1": {
@@ -806,7 +772,6 @@ class TestYooptaDocumentExport:
         doc = YooptaDocument.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             name="Link Document",
             content=json.dumps(content),
         )
@@ -865,16 +830,6 @@ def test_project(db, test_organization, test_user):
 
 
 @pytest.fixture
-def test_workspace(db, test_project, test_user):
-    """Create a test workspace in the test project."""
-    return Workspace.objects.create(
-        project=test_project,
-        name="Test Workspace",
-        created_by=test_user,
-    )
-
-
-@pytest.fixture
 def authenticated_client(api_client, test_user):
     """Create an authenticated Django test client."""
     api_client.force_login(test_user)
@@ -910,7 +865,6 @@ class TestYooptaDocumentCreateAPI:
         authenticated_client,
         test_organization,
         test_project,
-        test_workspace,
         sample_yoopta_json,
     ):
         """Test successful creation of a Yoopta document."""
@@ -922,7 +876,6 @@ class TestYooptaDocumentCreateAPI:
                     "description": "Created via API",
                     "content": sample_yoopta_json,
                     "project_id": test_project.id,
-                    "workspace_id": test_workspace.id,
                 }
             ),
             content_type="application/json",
@@ -935,13 +888,11 @@ class TestYooptaDocumentCreateAPI:
         assert data["document_type"] == "YooptaDocument"
         assert data["organization_id"] == test_organization.id
         assert data["project_id"] == test_project.id
-        assert data["workspace_id"] == test_workspace.id
 
     def test_create_yoopta_document_unauthenticated(
         self,
         api_client,
         test_project,
-        test_workspace,
         sample_yoopta_json,
     ):
         """Test that unauthenticated requests are rejected."""
@@ -952,7 +903,6 @@ class TestYooptaDocumentCreateAPI:
                     "name": "Test Document",
                     "content": sample_yoopta_json,
                     "project_id": test_project.id,
-                    "workspace_id": test_workspace.id,
                 }
             ),
             content_type="application/json",
@@ -965,7 +915,6 @@ class TestYooptaDocumentCreateAPI:
         self,
         authenticated_client,
         test_organization,
-        test_workspace,
         sample_yoopta_json,
     ):
         """Test error when project_id doesn't exist."""
@@ -976,7 +925,6 @@ class TestYooptaDocumentCreateAPI:
                     "name": "Test Document",
                     "content": sample_yoopta_json,
                     "project_id": 99999,
-                    "workspace_id": test_workspace.id,
                 }
             ),
             content_type="application/json",
@@ -985,36 +933,11 @@ class TestYooptaDocumentCreateAPI:
         assert response.status_code == 404
         assert "Project not found" in response.json().get("detail", "")
 
-    def test_create_yoopta_document_workspace_not_found(
-        self,
-        authenticated_client,
-        test_organization,
-        test_project,
-        sample_yoopta_json,
-    ):
-        """Test error when workspace_id doesn't exist."""
-        response = authenticated_client.post(
-            "/api/documents/yoopta/create",
-            data=json.dumps(
-                {
-                    "name": "Test Document",
-                    "content": sample_yoopta_json,
-                    "project_id": test_project.id,
-                    "workspace_id": 99999,
-                }
-            ),
-            content_type="application/json",
-        )
-
-        assert response.status_code == 404
-        assert "Workspace not found" in response.json().get("detail", "")
-
     def test_create_yoopta_document_with_custom_version(
         self,
         authenticated_client,
         test_organization,
         test_project,
-        test_workspace,
         sample_yoopta_json,
     ):
         """Test creation with custom yoopta_version."""
@@ -1025,7 +948,6 @@ class TestYooptaDocumentCreateAPI:
                     "name": "Versioned Document",
                     "content": sample_yoopta_json,
                     "project_id": test_project.id,
-                    "workspace_id": test_workspace.id,
                     "yoopta_version": "5.0",
                 }
             ),
@@ -1045,7 +967,6 @@ class TestYooptaDocumentUpdateAPI:
         authenticated_client,
         test_organization,
         test_project,
-        test_workspace,
         sample_yoopta_json,
     ):
         """Test successful update of a Yoopta document."""
@@ -1053,8 +974,7 @@ class TestYooptaDocumentUpdateAPI:
         doc = YooptaDocument.objects.create(
             organization=test_organization,
             project=test_project,
-            workspace=test_workspace,
-            name="Original Name",
+                        name="Original Name",
             content=sample_yoopta_json,
         )
 
@@ -1094,15 +1014,13 @@ class TestYooptaDocumentUpdateAPI:
         authenticated_client,
         test_organization,
         test_project,
-        test_workspace,
         sample_yoopta_json,
     ):
         """Test partial update (only name, content unchanged)."""
         doc = YooptaDocument.objects.create(
             organization=test_organization,
             project=test_project,
-            workspace=test_workspace,
-            name="Original Name",
+                        name="Original Name",
             description="Original Description",
             content=sample_yoopta_json,
         )
@@ -1147,14 +1065,9 @@ class TestYooptaDocumentUpdateAPI:
             name="Other Project",
             working_directory="/tmp/other",
         )
-        other_workspace = Workspace.objects.create(
-            project=other_project,
-            name="Other Workspace",
-        )
         other_doc = YooptaDocument.objects.create(
             organization=other_org,
             project=other_project,
-            workspace=other_workspace,
             name="Other Org Doc",
             content=sample_yoopta_json,
         )
@@ -1178,7 +1091,6 @@ class TestYooptaDocumentExportAPI:
         authenticated_client,
         test_organization,
         test_project,
-        test_workspace,
     ):
         """Test exporting a document to Markdown format."""
         content = {
@@ -1194,8 +1106,7 @@ class TestYooptaDocumentExportAPI:
         doc = YooptaDocument.objects.create(
             organization=test_organization,
             project=test_project,
-            workspace=test_workspace,
-            name="Export Test",
+                        name="Export Test",
             content=json.dumps(content),
         )
 
@@ -1215,7 +1126,6 @@ class TestYooptaDocumentExportAPI:
         authenticated_client,
         test_organization,
         test_project,
-        test_workspace,
     ):
         """Test exporting a document to HTML format."""
         content = {
@@ -1231,8 +1141,7 @@ class TestYooptaDocumentExportAPI:
         doc = YooptaDocument.objects.create(
             organization=test_organization,
             project=test_project,
-            workspace=test_workspace,
-            name="Export Test",
+                        name="Export Test",
             content=json.dumps(content),
         )
 
@@ -1248,7 +1157,6 @@ class TestYooptaDocumentExportAPI:
         authenticated_client,
         test_organization,
         test_project,
-        test_workspace,
     ):
         """Test export defaults to markdown when format not specified."""
         content = {
@@ -1261,8 +1169,7 @@ class TestYooptaDocumentExportAPI:
         doc = YooptaDocument.objects.create(
             organization=test_organization,
             project=test_project,
-            workspace=test_workspace,
-            name="Default Export",
+                        name="Default Export",
             content=json.dumps(content),
         )
 
@@ -1277,14 +1184,12 @@ class TestYooptaDocumentExportAPI:
         authenticated_client,
         test_organization,
         test_project,
-        test_workspace,
     ):
         """Test error when invalid export format is specified."""
         doc = YooptaDocument.objects.create(
             organization=test_organization,
             project=test_project,
-            workspace=test_workspace,
-            name="Test Doc",
+                        name="Test Doc",
             content="{}",
         )
 
@@ -1316,14 +1221,9 @@ class TestYooptaDocumentExportAPI:
             name="Other Project",
             working_directory="/tmp/other2",
         )
-        other_workspace = Workspace.objects.create(
-            project=other_project,
-            name="Other Workspace",
-        )
         other_doc = YooptaDocument.objects.create(
             organization=other_org,
             project=other_project,
-            workspace=other_workspace,
             name="Other Doc",
             content="{}",
         )
@@ -1341,15 +1241,13 @@ class TestYooptaDocumentListAPI:
         authenticated_client,
         test_organization,
         test_project,
-        test_workspace,
         sample_yoopta_json,
     ):
         """Test that Yoopta documents appear in the document list."""
         doc = YooptaDocument.objects.create(
             organization=test_organization,
             project=test_project,
-            workspace=test_workspace,
-            name="Yoopta in List",
+                        name="Yoopta in List",
             content=sample_yoopta_json,
         )
 
@@ -1370,7 +1268,6 @@ class TestYooptaDocumentListAPI:
         authenticated_client,
         test_organization,
         test_project,
-        test_workspace,
         sample_yoopta_json,
     ):
         """Test filtering documents by yooptadocument type."""
@@ -1378,8 +1275,7 @@ class TestYooptaDocumentListAPI:
         YooptaDocument.objects.create(
             organization=test_organization,
             project=test_project,
-            workspace=test_workspace,
-            name="Yoopta Doc",
+                        name="Yoopta Doc",
             content=sample_yoopta_json,
         )
 
@@ -1389,8 +1285,7 @@ class TestYooptaDocumentListAPI:
         Markdown.objects.create(
             organization=test_organization,
             project=test_project,
-            workspace=test_workspace,
-            name="Markdown Doc",
+                        name="Markdown Doc",
             content="# Test",
         )
 

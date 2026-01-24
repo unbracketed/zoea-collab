@@ -38,25 +38,24 @@ class CollectionAdmin(admin.ModelAdmin):
     Admin interface for Collection management (LEGACY).
 
     DEPRECATED: This model is superseded by DocumentCollection.
-    Displays collections scoped to projects and workspaces with document counts.
+    Displays collections scoped to projects with document counts.
     """
     list_display = [
         'name',
         'organization',
         'project',
-        'workspace',
         'document_count',
         'created_by',
         'created_at'
     ]
-    list_filter = ['organization', 'project', 'workspace', 'created_at']
-    search_fields = ['name', 'description', 'organization__name', 'project__name', 'workspace__name']
+    list_filter = ['organization', 'project', 'created_at']
+    search_fields = ['name', 'description', 'organization__name', 'project__name']
     readonly_fields = ['created_at', 'updated_at']
-    raw_id_fields = ['organization', 'project', 'workspace', 'created_by']
+    raw_id_fields = ['organization', 'project', 'created_by']
 
     fieldsets = [
         ('Basic Information', {
-            'fields': ['organization', 'project', 'workspace', 'name', 'description']
+            'fields': ['organization', 'project', 'name', 'description']
         }),
         ('Metadata', {
             'fields': ['created_by', 'created_at', 'updated_at'],
@@ -75,7 +74,6 @@ class CollectionAdmin(admin.ModelAdmin):
         return qs.select_related(
             'organization',
             'project',
-            'workspace',
             'created_by'
         ).prefetch_related('documents')
 
@@ -92,21 +90,20 @@ class DocumentAdmin(admin.ModelAdmin):
         'name',
         'organization',
         'project',
-        'workspace',
         'get_type_name',
         'file_size_display',
         'created_by',
         'created_at'
     ]
-    list_filter = ['organization', 'project', 'workspace', 'created_at']
-    search_fields = ['name', 'description', 'organization__name', 'project__name', 'workspace__name']
+    list_filter = ['organization', 'project', 'created_at']
+    search_fields = ['name', 'description', 'organization__name', 'project__name']
     readonly_fields = ['created_at', 'updated_at']
-    raw_id_fields = ['organization', 'project', 'workspace', 'created_by', 'folder']
+    raw_id_fields = ['organization', 'project', 'created_by', 'folder']
     filter_horizontal = ['collections']
 
     fieldsets = [
         ('Basic Information', {
-            'fields': ['organization', 'project', 'workspace', 'folder', 'name', 'description']
+            'fields': ['organization', 'project', 'folder', 'name', 'description']
         }),
         ('File Metadata', {
             'fields': ['file_size']
@@ -138,7 +135,6 @@ class DocumentAdmin(admin.ModelAdmin):
         return qs.select_subclasses().select_related(
             'organization',
             'project',
-            'workspace',
             'created_by',
             'folder',
         ).prefetch_related('collections')
@@ -146,10 +142,10 @@ class DocumentAdmin(admin.ModelAdmin):
 
 @admin.register(Folder)
 class FolderAdmin(MPTTModelAdmin):
-    list_display = ['name', 'workspace', 'project', 'organization', 'parent', 'created_by', 'created_at']
-    search_fields = ['name', 'description', 'workspace__name', 'project__name', 'organization__name']
-    list_filter = ['organization', 'workspace']
-    raw_id_fields = ['organization', 'project', 'workspace', 'parent', 'created_by']
+    list_display = ['name', 'project', 'organization', 'parent', 'created_by', 'created_at']
+    search_fields = ['name', 'description', 'project__name', 'organization__name']
+    list_filter = ['organization', 'project']
+    raw_id_fields = ['organization', 'project', 'parent', 'created_by']
     ordering = ['tree_id', 'lft']
 
 
@@ -601,7 +597,7 @@ class YooptaDocumentAdmin(admin.ModelAdmin):
 
     fieldsets = [
         ('Basic Information', {
-            'fields': ['organization', 'project', 'workspace', 'folder', 'name', 'description']
+            'fields': ['organization', 'project', 'folder', 'name', 'description']
         }),
         ('Yoopta Configuration', {
             'fields': ['yoopta_version']
@@ -678,7 +674,7 @@ class DocumentCollectionAdmin(admin.ModelAdmin):
         'name',
         'collection_type',
         'organization',
-        'workspace',
+        'project',
         'owner',
         'is_active',
         'item_count',
@@ -690,19 +686,19 @@ class DocumentCollectionAdmin(admin.ModelAdmin):
         'is_active',
         'is_recent',
         'organization',
-        'workspace',
+        'project',
         'created_at',
     ]
     search_fields = [
         'name',
         'description',
         'organization__name',
-        'workspace__name',
+        'project__name',
         'owner__username',
         'owner__email',
     ]
     readonly_fields = ['created_at', 'updated_at', 'activated_at', 'sequence_head', 'sequence_tail']
-    raw_id_fields = ['organization', 'project', 'workspace', 'owner', 'created_by']
+    raw_id_fields = ['organization', 'project', 'owner', 'created_by']
     inlines = [DocumentCollectionItemInline]
 
     fieldsets = [
@@ -710,7 +706,7 @@ class DocumentCollectionAdmin(admin.ModelAdmin):
             'fields': ['name', 'description', 'collection_type']
         }),
         ('Scope', {
-            'fields': ['organization', 'project', 'workspace', 'owner']
+            'fields': ['organization', 'project', 'owner']
         }),
         ('Status', {
             'fields': ['is_active', 'is_recent', 'activated_at'],
@@ -737,7 +733,6 @@ class DocumentCollectionAdmin(admin.ModelAdmin):
         return qs.select_related(
             'organization',
             'project',
-            'workspace',
             'owner',
             'created_by',
         ).prefetch_related('items')
@@ -802,7 +797,7 @@ class DocumentCollectionItemAdmin(admin.ModelAdmin):
         return qs.select_related(
             'collection',
             'collection__organization',
-            'collection__workspace',
+            'collection__project',
             'content_type',
             'added_by',
             'virtual_node',
@@ -819,7 +814,7 @@ class VirtualCollectionNodeAdmin(admin.ModelAdmin):
     list_display = [
         'id',
         'node_type',
-        'workspace',
+        'project',
         'preview_text_truncated',
         'is_materialized',
         'expires_at',
@@ -828,7 +823,7 @@ class VirtualCollectionNodeAdmin(admin.ModelAdmin):
     ]
     list_filter = [
         'node_type',
-        'workspace',
+        'project',
         'materialized_content_type',
         'created_at',
         'expires_at',
@@ -837,14 +832,14 @@ class VirtualCollectionNodeAdmin(admin.ModelAdmin):
         'node_type',
         'preview_text',
         'origin_reference',
-        'workspace__name',
+        'project__name',
     ]
     readonly_fields = ['created_at', 'updated_at']
-    raw_id_fields = ['workspace', 'created_by', 'materialized_content_type']
+    raw_id_fields = ['project', 'created_by', 'materialized_content_type']
 
     fieldsets = [
         ('Basic Information', {
-            'fields': ['workspace', 'node_type', 'origin_reference']
+            'fields': ['project', 'node_type', 'origin_reference']
         }),
         ('Content', {
             'fields': ['payload', 'preview_text', 'preview_image']
@@ -879,7 +874,7 @@ class VirtualCollectionNodeAdmin(admin.ModelAdmin):
         """Optimize queryset with select_related."""
         qs = super().get_queryset(request)
         return qs.select_related(
-            'workspace',
+            'project',
             'created_by',
             'materialized_content_type',
         )

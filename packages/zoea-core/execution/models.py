@@ -35,14 +35,6 @@ class ExecutionRun(models.Model):
         blank=True,
         help_text="Optional project scope",
     )
-    workspace = models.ForeignKey(
-        "workspaces.Workspace",
-        on_delete=models.CASCADE,
-        related_name="execution_runs",
-        null=True,
-        blank=True,
-        help_text="Optional workspace scope",
-    )
     channel = models.ForeignKey(
         "channels.Channel",
         on_delete=models.SET_NULL,
@@ -199,15 +191,10 @@ class ExecutionRun(models.Model):
             return self.artifacts
 
         from documents.models import CollectionType, DocumentCollection
-        from workspaces.models import Workspace
-
-        workspace = self.workspace
-        if workspace is None and self.project_id:
-            workspace = Workspace.objects.filter(project_id=self.project_id).first()
 
         collection = DocumentCollection.objects.create(
             organization=self.organization,
-            workspace=workspace,
+            project=self.project,
             collection_type=CollectionType.ARTIFACT,
             name=f"Execution Run {self.run_id[:8]}",
             created_by=self.created_by,

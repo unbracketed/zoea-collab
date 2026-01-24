@@ -12,7 +12,6 @@ class Migration(migrations.Migration):
         ('organizations', '0006_alter_organization_slug'),
         ('projects', '0005_add_llm_config_fields'),
         ('workflows', '0001_initial'),
-        ('workspaces', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -36,7 +35,6 @@ class Migration(migrations.Migration):
                 ('created_by', models.ForeignKey(help_text='User who initiated this run', null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='workflow_runs', to=settings.AUTH_USER_MODEL)),
                 ('organization', models.ForeignKey(help_text='The organization that owns this workflow run', on_delete=django.db.models.deletion.CASCADE, related_name='workflow_runs', to='organizations.organization')),
                 ('project', models.ForeignKey(help_text='Project context for this run', on_delete=django.db.models.deletion.CASCADE, related_name='workflow_runs', to='projects.project')),
-                ('workspace', models.ForeignKey(help_text='Workspace context for this run', on_delete=django.db.models.deletion.CASCADE, related_name='workflow_runs', to='workspaces.workspace')),
             ],
             options={
                 'verbose_name': 'Workflow Run',

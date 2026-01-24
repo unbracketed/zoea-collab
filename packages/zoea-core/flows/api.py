@@ -13,7 +13,6 @@ from ninja import Router
 from ninja.errors import HttpError
 
 from accounts.utils import (
-    aget_project_default_workspace,
     aget_user_default_project,
     aget_user_organization,
 )
@@ -194,7 +193,7 @@ async def run_workflow(
     Args:
         request: Django request object
         slug: Workflow identifier
-        payload: Request body with inputs and optional project/workspace IDs
+        payload: Request body with inputs and optional project ID
 
     Returns:
         ExecutionRunResponse with execution status and outputs
@@ -239,21 +238,10 @@ async def run_workflow(
             validation_errors=validation_errors,
         )
 
-    # Get project and workspace context
-    # If workspace_id is provided, derive project from workspace to avoid mismatch
-    if payload.workspace_id:
-        workspace = await _get_workspace_by_id(payload.workspace_id, organization)
-        if not workspace:
-            raise HttpError(400, "Workspace not found or not accessible.")
-        project = workspace.project
-    else:
-        # Get project first, then workspace
-        project = await _get_project_context(request.user, organization, payload.project_id)
-        if not project:
-            raise HttpError(400, "No project available. Please create a project first.")
-        workspace = await _get_workspace_context(project, None)
-        if not workspace:
-            raise HttpError(400, "No workspace available. Please create a workspace first.")
+    # Get project context
+    project = await _get_project_context(request.user, organization, payload.project_id)
+    if not project:
+        raise HttpError(400, "No project available. Please create a project first.")
 
     # Execute workflow - background or synchronous
     if payload.background:
@@ -266,7 +254,6 @@ async def run_workflow(
                 inputs=payload.inputs,
                 organization=organization,
                 project=project,
-                workspace=workspace,
                 user=request.user,
             )
 
@@ -288,7 +275,7 @@ async def run_workflow(
     else:
         # Synchronous execution (default for backwards compat)
         try:
-            runner = WorkflowRunner(organization, project, workspace, request.user)
+            runner = WorkflowRunner(organization, project, request.user)
             result = await runner.run(slug, payload.inputs)
 
             # Convert outputs to schema format
@@ -373,59 +360,6 @@ async def _get_project_context(user, organization, project_id: int | None):
     else:
         # Use default project
         return await aget_user_default_project(user)
-
-
-async def _get_workspace_by_id(workspace_id: int, organization):
-    """
-    Get workspace by ID, verifying it belongs to the organization.
-
-    Args:
-        workspace_id: Workspace ID
-        organization: Organization instance to verify access
-
-    Returns:
-        Workspace instance or None
-    """
-    from workspaces.models import Workspace
-
-    @sync_to_async
-    def _get_workspace():
-        try:
-            return Workspace.objects.select_related("project").get(
-                id=workspace_id, project__organization=organization
-            )
-        except Workspace.DoesNotExist:
-            return None
-
-    return await _get_workspace()
-
-
-async def _get_workspace_context(project, workspace_id: int | None):
-    """
-    Get workspace context for workflow execution.
-
-    Args:
-        project: Project instance
-        workspace_id: Optional explicit workspace ID
-
-    Returns:
-        Workspace instance or None
-    """
-    from workspaces.models import Workspace
-
-    if workspace_id:
-        # Fetch explicit workspace, verify it belongs to project
-        @sync_to_async
-        def _get_workspace():
-            try:
-                return Workspace.objects.get(id=workspace_id, project=project)
-            except Workspace.DoesNotExist:
-                return None
-
-        return await _get_workspace()
-    else:
-        # Use default workspace
-        return await aget_project_default_workspace(project)
 
 
 # ============================================================================
@@ -549,7 +483,7 @@ async def get_workflow_run(request, run_id: str):
     @sync_to_async
     def _fetch_run():
         try:
-            return ExecutionRun.objects.select_related("created_by", "project", "workspace").get(
+            return ExecutionRun.objects.select_related("created_by", "project").get(
                 run_id=run_id,
                 organization=organization,
                 workflow_slug__isnull=False,
@@ -589,6 +523,5 @@ async def get_workflow_run(request, run_id: str):
         error=run.error,
         provider_model=run.provider_model,
         task_id=run.task_id,
-        project_id=run.project.id,
-        workspace_id=run.workspace.id,
+        project_id=run.project.id if run.project else None,
     )

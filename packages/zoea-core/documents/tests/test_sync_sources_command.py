@@ -15,7 +15,6 @@ from organizations.models import Organization
 from projects.models import Project
 from sources.models import Source
 from sources.base import DocumentMetadata
-from workspaces.models import Workspace
 
 
 @pytest.fixture
@@ -40,15 +39,6 @@ def project(db, organization, django_user_model):
         name="Test Project",
         working_directory="/test/path",
         created_by=user
-    )
-
-
-@pytest.fixture
-def workspace(db, project):
-    """Create a test workspace."""
-    return Workspace.objects.create(
-        project=project,
-        name="Test Workspace"
     )
 
 
@@ -87,7 +77,7 @@ class TestSyncSourcesCommand:
         with pytest.raises(CommandError, match="No sources found"):
             call_command('sync_sources', stdout=out)
 
-    def test_sync_specific_source_by_name(self, source, workspace):
+    def test_sync_specific_source_by_name(self, source):
         """Test syncing a specific source by name."""
         out = StringIO()
 
@@ -97,7 +87,7 @@ class TestSyncSourcesCommand:
         assert 'Test Source' in output
         assert 'local' in output.lower()
 
-    def test_sync_specific_source_by_id(self, source, workspace):
+    def test_sync_specific_source_by_id(self, source):
         """Test syncing a specific source by ID."""
         out = StringIO()
 
@@ -106,7 +96,7 @@ class TestSyncSourcesCommand:
         output = out.getvalue()
         assert 'Test Source' in output
 
-    def test_sync_sources_for_project(self, source, workspace):
+    def test_sync_sources_for_project(self, source):
         """Test syncing all sources for a specific project."""
         out = StringIO()
 
@@ -116,7 +106,7 @@ class TestSyncSourcesCommand:
         assert 'Test Project' in output
         assert 'Test Source' in output
 
-    def test_sync_sources_for_project_by_id(self, project, source, workspace):
+    def test_sync_sources_for_project_by_id(self, project, source):
         """Test syncing sources for project by ID."""
         out = StringIO()
 
@@ -125,7 +115,7 @@ class TestSyncSourcesCommand:
         output = out.getvalue()
         assert 'Test Project' in output
 
-    def test_sync_sources_for_organization(self, organization, source, workspace):
+    def test_sync_sources_for_organization(self, organization, source):
         """Test syncing all sources in an organization."""
         out = StringIO()
 
@@ -134,7 +124,7 @@ class TestSyncSourcesCommand:
         output = out.getvalue()
         assert 'Test Organization' in output
 
-    def test_sync_sources_for_organization_by_id(self, organization, source, workspace):
+    def test_sync_sources_for_organization_by_id(self, organization, source):
         """Test syncing sources for organization by ID."""
         out = StringIO()
 
@@ -143,7 +133,7 @@ class TestSyncSourcesCommand:
         output = out.getvalue()
         assert 'Test Organization' in output
 
-    def test_dry_run_mode(self, source, workspace):
+    def test_dry_run_mode(self, source):
         """Test dry run mode doesn't create documents."""
         from documents.models import Document
 
@@ -156,7 +146,7 @@ class TestSyncSourcesCommand:
         assert '[DRY RUN]' in output
         assert Document.objects.count() == initial_count
 
-    def test_sync_creates_documents(self, source, workspace):
+    def test_sync_creates_documents(self, source):
         """Test that sync creates document records."""
         from documents.models import Document
 
@@ -168,7 +158,7 @@ class TestSyncSourcesCommand:
         # Should have created 3 documents (test.md, test.csv, test.d2)
         assert Document.objects.count() > initial_count
 
-    def test_sync_updates_source_timestamp(self, source, workspace):
+    def test_sync_updates_source_timestamp(self, source):
         """Test that successful sync updates source.last_sync_at."""
         assert source.last_sync_at is None
 
@@ -177,17 +167,6 @@ class TestSyncSourcesCommand:
 
         source.refresh_from_db()
         assert source.last_sync_at is not None
-
-    def test_no_workspace_available(self, source):
-        """Test handling when no workspace is available."""
-        # Delete all workspaces
-        Workspace.objects.all().delete()
-
-        out = StringIO()
-        call_command('sync_sources', '--source', 'Test Source', stdout=out)
-
-        output = out.getvalue()
-        assert 'No workspace available' in output
 
     def test_invalid_source_name(self):
         """Test error handling for invalid source name."""
@@ -210,21 +189,7 @@ class TestSyncSourcesCommand:
         with pytest.raises(CommandError, match="Organization .* not found"):
             call_command('sync_sources', '--organization', 'Nonexistent Org', stdout=out)
 
-    def test_sync_with_specific_workspace(self, source, workspace):
-        """Test syncing to a specific workspace."""
-        out = StringIO()
-
-        call_command(
-            'sync_sources',
-            '--source', 'Test Source',
-            '--workspace', 'Test Workspace',
-            stdout=out
-        )
-
-        output = out.getvalue()
-        assert 'Test Workspace' in output
-
-    def test_inactive_source_not_synced(self, source, workspace):
+    def test_inactive_source_not_synced(self, source):
         """Test that inactive sources are not synced when using --all."""
         source.is_active = False
         source.save()
@@ -235,7 +200,7 @@ class TestSyncSourcesCommand:
             call_command('sync_sources', '--all', stdout=out)
 
     @patch('documents.management.commands.sync_sources.Command.sync_document')
-    def test_failed_document_sync_continues(self, mock_sync, source, workspace):
+    def test_failed_document_sync_continues(self, mock_sync, source):
         """Test that sync continues even if individual documents fail."""
         # Make sync_document raise an exception
         mock_sync.side_effect = Exception("Test error")
@@ -248,7 +213,7 @@ class TestSyncSourcesCommand:
         # Should show that it tried to sync and failed
         assert mock_sync.call_count > 0
 
-    def test_sync_skips_unchanged_documents(self, source, workspace):
+    def test_sync_skips_unchanged_documents(self, source):
         """Test that sync skips documents that haven't changed."""
         from documents.models import Document
 

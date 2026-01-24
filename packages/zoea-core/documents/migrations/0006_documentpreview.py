@@ -8,7 +8,6 @@ class Migration(migrations.Migration):
         ("documents", "0005_jsoncanvas_mermaiddiagram_and_more"),
         ("organizations", "0006_alter_organization_slug"),
         ("projects", "0002_project_gemini_store_id_project_gemini_store_name_and_more"),
-        ("workspaces", "0001_initial"),
     ]
 
     operations = [
@@ -114,23 +113,13 @@ class Migration(migrations.Migration):
                         to="projects.project",
                     ),
                 ),
-                (
-                    "workspace",
-                    models.ForeignKey(
-                        blank=True,
-                        help_text="Workspace scope for this preview",
-                        null=True,
-                        on_delete=django.db.models.deletion.CASCADE,
-                        to="workspaces.workspace",
-                    ),
-                ),
             ],
             options={
                 "verbose_name": "Document Preview",
                 "verbose_name_plural": "Document Previews",
                 "indexes": [
                     models.Index(
-                        fields=["organization", "project", "workspace", "status"],
+                        fields=["organization", "project", "status"],
                         name="docpreview_scope_status",
                     ),
                 ],

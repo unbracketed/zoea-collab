@@ -47,9 +47,6 @@ def list_documents(
     project: str | None = typer.Option(
         None, "--project", "-p", help="Filter by project name"
     ),
-    workspace: str | None = typer.Option(
-        None, "--workspace", "-w", help="Filter by workspace name"
-    ),
     folder: str | None = typer.Option(
         None, "--folder", help="Filter by folder path"
     ),
@@ -66,12 +63,11 @@ def list_documents(
         Document = apps.get_model("documents", "Document")
         Organization = apps.get_model("organizations", "Organization")
         Project = apps.get_model("projects", "Project")
-        Workspace = apps.get_model("workspaces", "Workspace")
         Folder = apps.get_model("documents", "Folder")
 
         # Build query with select_subclasses for polymorphic types
         documents = Document.objects.select_subclasses().select_related(
-            "organization", "project", "workspace", "folder", "created_by"
+            "organization", "project", "folder", "created_by"
         )
 
         # Apply organization filter
@@ -91,15 +87,6 @@ def list_documents(
                 documents = documents.filter(project=project_obj)
             except Project.DoesNotExist:
                 print_error(f"Project not found: {project}")
-                raise typer.Exit(code=1)
-
-        # Apply workspace filter
-        if workspace:
-            try:
-                workspace_obj = Workspace.objects.get(name=workspace)
-                documents = documents.filter(workspace=workspace_obj)
-            except Workspace.DoesNotExist:
-                print_error(f"Workspace not found: {workspace}")
                 raise typer.Exit(code=1)
 
         # Apply folder filter (by path)
@@ -143,7 +130,6 @@ def list_documents(
                 "name": doc.name,
                 "type": doc.get_type_name(),
                 "project": doc.project.name if doc.project else None,
-                "workspace": doc.workspace.name if doc.workspace else None,
                 "folder": doc.folder.get_path() if doc.folder else None,
                 "description": doc.description,
                 "file_size": doc.file_size,
@@ -206,7 +192,7 @@ def show_document(
         # Get the document with its specific subclass
         try:
             doc = Document.objects.select_subclasses().select_related(
-                "organization", "project", "workspace", "folder", "created_by"
+                "organization", "project", "folder", "created_by"
             ).get(id=document_id)
         except Document.DoesNotExist:
             print_error(f"Document not found: {document_id}")
@@ -250,7 +236,6 @@ def show_document(
                 "description": d.description,
                 "organization": d.organization.name if d.organization else None,
                 "project": d.project.name if d.project else None,
-                "workspace": d.workspace.name if d.workspace else None,
                 "folder": d.folder.get_path() if d.folder else None,
                 "file_size": d.file_size,
                 "gemini_file_id": d.gemini_file_id,
@@ -280,7 +265,6 @@ def show_document(
 [bold yellow]Location:[/]
   Organization: {d.organization.name if d.organization else 'N/A'}
   Project: {d.project.name if d.project else 'N/A'}
-  Workspace: {d.workspace.name if d.workspace else 'N/A'}
   Folder: {d.folder.get_path() if d.folder else 'N/A'}
 
 [bold blue]Gemini Integration:[/]
@@ -347,38 +331,19 @@ def _get_content_from_input(content: str | None, file: str | None) -> str:
     return ""
 
 
-def _resolve_workspace(project_obj, workspace_name: str | None):
-    """Resolve workspace from name or get default for project."""
-    Workspace = apps.get_model("workspaces", "Workspace")
-
-    if workspace_name:
-        try:
-            return Workspace.objects.get(name=workspace_name, project=project_obj)
-        except Workspace.DoesNotExist:
-            print_error(f"Workspace '{workspace_name}' not found in project '{project_obj.name}'")
-            raise typer.Exit(code=1)
-
-    # Get default workspace for project (first one)
-    workspace = Workspace.objects.filter(project=project_obj).first()
-    if not workspace:
-        print_error(f"No workspaces found for project '{project_obj.name}'")
-        raise typer.Exit(code=1)
-    return workspace
-
-
-def _resolve_folder(workspace_obj, folder_path: str | None):
-    """Resolve folder from path within workspace."""
+def _resolve_folder(project_obj, folder_path: str | None):
+    """Resolve folder from path within project."""
     if not folder_path:
         return None
 
     Folder = apps.get_model("documents", "Folder")
 
     # Find folder by path
-    for folder in Folder.objects.filter(workspace=workspace_obj):
+    for folder in Folder.objects.filter(project=project_obj):
         if folder.get_path() == folder_path:
             return folder
 
-    print_error(f"Folder '{folder_path}' not found in workspace '{workspace_obj.name}'")
+    print_error(f"Folder '{folder_path}' not found in project '{project_obj.name}'")
     raise typer.Exit(code=1)
 
 
@@ -389,7 +354,6 @@ def _build_created_doc_json(doc):
         "name": doc.name,
         "type": doc.get_type_name(),
         "project": doc.project.name if doc.project else None,
-        "workspace": doc.workspace.name if doc.workspace else None,
         "folder": doc.folder.get_path() if doc.folder else None,
         "description": doc.description,
         "file_size": doc.file_size,
@@ -402,10 +366,7 @@ def _build_created_doc_json(doc):
 def create_markdown(
     name: str = typer.Argument(..., help="Document name"),
     project: str = typer.Option(..., "--project", "-p", help="Project name (required)"),
-    workspace: str | None = typer.Option(
-        None, "--workspace", "-w", help="Workspace name (uses default if not specified)"
-    ),
-    folder: str | None = typer.Option(None, "--folder", help="Folder path within workspace"),
+    folder: str | None = typer.Option(None, "--folder", help="Folder path within project"),
     description: str = typer.Option("", "--description", "-d", help="Document description"),
     content: str | None = typer.Option(None, "--content", "-c", help="Markdown content"),
     file: str | None = typer.Option(None, "--file", help="Read content from file"),
@@ -431,9 +392,8 @@ def create_markdown(
             print_error(f"Project not found: {project}")
             raise typer.Exit(code=1)
 
-        # Resolve workspace and folder
-        workspace_obj = _resolve_workspace(project_obj, workspace)
-        folder_obj = _resolve_folder(workspace_obj, folder)
+        # Resolve folder
+        folder_obj = _resolve_folder(project_obj, folder)
 
         # Get content
         doc_content = _get_content_from_input(content, file)
@@ -445,7 +405,6 @@ def create_markdown(
             content=doc_content,
             organization=project_obj.organization,
             project=project_obj,
-            workspace=workspace_obj,
             folder=folder_obj,
             file_size=len(doc_content.encode("utf-8")) if doc_content else 0,
         )
@@ -458,7 +417,6 @@ def create_markdown(
 [bold cyan]Name:[/] {doc.name}
 [bold magenta]Type:[/] Markdown
 [bold yellow]Project:[/] {doc.project.name}
-[bold green]Workspace:[/] {doc.workspace.name}
 [bold blue]Folder:[/] {doc.folder.get_path() if doc.folder else 'N/A'}
 [bold white]Size:[/] {doc.file_size} bytes
 [bold white]ID:[/] {doc.id}
@@ -477,10 +435,7 @@ def create_markdown(
 def create_d2(
     name: str = typer.Argument(..., help="Document name"),
     project: str = typer.Option(..., "--project", "-p", help="Project name (required)"),
-    workspace: str | None = typer.Option(
-        None, "--workspace", "-w", help="Workspace name (uses default if not specified)"
-    ),
-    folder: str | None = typer.Option(None, "--folder", help="Folder path within workspace"),
+    folder: str | None = typer.Option(None, "--folder", help="Folder path within project"),
     description: str = typer.Option("", "--description", "-d", help="Document description"),
     content: str | None = typer.Option(None, "--content", "-c", help="D2 diagram content"),
     file: str | None = typer.Option(None, "--file", help="Read content from file"),
@@ -506,9 +461,8 @@ def create_d2(
             print_error(f"Project not found: {project}")
             raise typer.Exit(code=1)
 
-        # Resolve workspace and folder
-        workspace_obj = _resolve_workspace(project_obj, workspace)
-        folder_obj = _resolve_folder(workspace_obj, folder)
+        # Resolve folder
+        folder_obj = _resolve_folder(project_obj, folder)
 
         # Get content
         doc_content = _get_content_from_input(content, file)
@@ -520,7 +474,6 @@ def create_d2(
             content=doc_content,
             organization=project_obj.organization,
             project=project_obj,
-            workspace=workspace_obj,
             folder=folder_obj,
             file_size=len(doc_content.encode("utf-8")) if doc_content else 0,
         )
@@ -533,7 +486,6 @@ def create_d2(
 [bold cyan]Name:[/] {doc.name}
 [bold magenta]Type:[/] D2 Diagram
 [bold yellow]Project:[/] {doc.project.name}
-[bold green]Workspace:[/] {doc.workspace.name}
 [bold blue]Folder:[/] {doc.folder.get_path() if doc.folder else 'N/A'}
 [bold white]Size:[/] {doc.file_size} bytes
 [bold white]ID:[/] {doc.id}
@@ -570,9 +522,6 @@ def list_folders(
     project: str | None = typer.Option(
         None, "--project", "-p", help="Filter by project name"
     ),
-    workspace: str | None = typer.Option(
-        None, "--workspace", "-w", help="Filter by workspace name"
-    ),
     format: OutputFormat = FormatOption,
 ):
     """List document folders."""
@@ -580,10 +529,9 @@ def list_folders(
         Folder = apps.get_model("documents", "Folder")
         Organization = apps.get_model("organizations", "Organization")
         Project = apps.get_model("projects", "Project")
-        Workspace = apps.get_model("workspaces", "Workspace")
 
         folders = Folder.objects.select_related(
-            "organization", "project", "workspace", "parent", "created_by"
+            "organization", "project", "parent", "created_by"
         )
 
         # Apply organization filter
@@ -605,15 +553,6 @@ def list_folders(
                 print_error(f"Project not found: {project}")
                 raise typer.Exit(code=1)
 
-        # Apply workspace filter
-        if workspace:
-            try:
-                workspace_obj = Workspace.objects.get(name=workspace)
-                folders = folders.filter(workspace=workspace_obj)
-            except Workspace.DoesNotExist:
-                print_error(f"Workspace not found: {workspace}")
-                raise typer.Exit(code=1)
-
         if not folders.exists():
             if format == OutputFormat.JSON:
                 print_json([])
@@ -627,7 +566,6 @@ def list_folders(
                 "name": f.name,
                 "path": f.get_path(),
                 "project": f.project.name if f.project else None,
-                "workspace": f.workspace.name if f.workspace else None,
                 "parent_id": f.parent_id,
                 "document_count": f.documents.count(),
                 "created_at": f.created_at.isoformat() if f.created_at else None,
@@ -638,7 +576,6 @@ def list_folders(
                 f.name,
                 f.get_path(),
                 f.project.name if f.project else "-",
-                f.workspace.name if f.workspace else "-",
                 str(f.documents.count()),
             ]
 
@@ -646,7 +583,6 @@ def list_folders(
             ("Name", "cyan", True),
             ("Path", "green"),
             ("Project", "yellow"),
-            ("Workspace", "blue"),
             ("Docs", "magenta"),
         ]
 
@@ -678,7 +614,7 @@ def show_folder(
 
         try:
             folder = Folder.objects.select_related(
-                "organization", "project", "workspace", "parent", "created_by"
+                "organization", "project", "parent", "created_by"
             ).get(id=folder_id)
         except Folder.DoesNotExist:
             print_error(f"Folder not found: {folder_id}")
@@ -695,7 +631,6 @@ def show_folder(
                 "path": f.get_path(),
                 "description": f.description,
                 "project": f.project.name if f.project else None,
-                "workspace": f.workspace.name if f.workspace else None,
                 "parent_id": f.parent_id,
                 "parent_name": f.parent.name if f.parent else None,
                 "document_count": doc_count,
@@ -714,7 +649,6 @@ def show_folder(
 
 [bold yellow]Location:[/]
   Project: {f.project.name if f.project else 'N/A'}
-  Workspace: {f.workspace.name if f.workspace else 'N/A'}
   Parent: {f.parent.name if f.parent else 'N/A (root)'}
 
 [bold blue]Contents:[/]
@@ -761,9 +695,6 @@ def show_folder(
 def create_folder(
     name: str = typer.Argument(..., help="Folder name"),
     project: str = typer.Option(..., "--project", "-p", help="Project name (required)"),
-    workspace: str | None = typer.Option(
-        None, "--workspace", "-w", help="Workspace name (uses default if not specified)"
-    ),
     parent: str | None = typer.Option(
         None, "--parent", help="Parent folder path (for nested folders)"
     ),
@@ -782,13 +713,10 @@ def create_folder(
             print_error(f"Project not found: {project}")
             raise typer.Exit(code=1)
 
-        # Resolve workspace
-        workspace_obj = _resolve_workspace(project_obj, workspace)
-
         # Resolve parent folder
         parent_folder = None
         if parent:
-            parent_folder = _resolve_folder(workspace_obj, parent)
+            parent_folder = _resolve_folder(project_obj, parent)
 
         # Create the folder
         folder = Folder.objects.create(
@@ -796,7 +724,6 @@ def create_folder(
             description=description,
             organization=project_obj.organization,
             project=project_obj,
-            workspace=workspace_obj,
             parent=parent_folder,
         )
 
@@ -806,7 +733,6 @@ def create_folder(
                 "name": folder.name,
                 "path": folder.get_path(),
                 "project": folder.project.name,
-                "workspace": folder.workspace.name,
                 "parent_id": folder.parent_id,
                 "created_at": folder.created_at.isoformat() if folder.created_at else None,
             })
@@ -816,7 +742,6 @@ def create_folder(
 [bold cyan]Name:[/] {folder.name}
 [bold green]Path:[/] {folder.get_path()}
 [bold yellow]Project:[/] {folder.project.name}
-[bold blue]Workspace:[/] {folder.workspace.name}
 [bold white]Parent:[/] {folder.parent.name if folder.parent else 'N/A (root)'}
 [bold white]ID:[/] {folder.id}
 """

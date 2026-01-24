@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from workflows.builtin.summarize_content.flow import build_flow
+from workflows.builtin.summarize_content.graph import build_graph
 from workflows.builtin.summarize_content.nodes import ReadContentNode, SummarizeNode
 from workflows.config import load_workflow_config
 from workflows.context import (
@@ -50,7 +50,7 @@ class TestWorkflowRegistration:
 
         assert "summarize_content" in workflows
         assert workflows["summarize_content"]["config_path"].exists()
-        assert workflows["summarize_content"]["flow_builder"] is not None
+        assert workflows["summarize_content"]["graph_builder"] is not None
 
     def test_workflow_config_path_is_correct(self):
         """Test that workflow config path points to existing flow-config.yaml."""
@@ -65,13 +65,17 @@ class TestWorkflowRegistration:
         assert config_path.name == "flow-config.yaml"
         assert config_path.parent.name == "summarize_content"
 
-    def test_flow_builder_returns_valid_flow(self):
-        """Test that the flow builder function returns a valid Flow."""
-        flow = build_flow()
+    def test_graph_builder_returns_valid_flow(self):
+        """Test that the graph builder returns a valid LangGraph StateGraph."""
+        from langgraph.graph import StateGraph
 
-        # Flow should have a start node
-        assert flow.start_node is not None
-        assert isinstance(flow.start_node, ReadContentNode)
+        graph = build_graph()
+
+        # Graph should be a StateGraph instance
+        assert isinstance(graph, StateGraph)
+        # Graph should have nodes defined
+        assert "read_content" in graph.nodes
+        assert "summarize" in graph.nodes
 
 
 class TestWorkflowConfigLoading:
@@ -216,19 +220,21 @@ class TestFlowExecution:
         """Create shared dict with context."""
         return {"ctx": mock_context}
 
-    def test_build_flow_creates_correct_node_chain(self):
-        """Test that build_flow creates correct node chain."""
-        flow = build_flow()
+    def test_build_graph_creates_correct_node_chain(self):
+        """Test that build_graph creates correct node structure."""
+        from langgraph.graph import StateGraph
 
-        # Start node should be ReadContentNode
-        assert isinstance(flow.start_node, ReadContentNode)
+        graph = build_graph()
 
-        # ReadContentNode should have a successor
-        assert flow.start_node.successors is not None
-        assert "default" in flow.start_node.successors
+        # Should be a StateGraph
+        assert isinstance(graph, StateGraph)
 
-        # Successor should be SummarizeNode
-        assert isinstance(flow.start_node.successors["default"], SummarizeNode)
+        # Should have the expected nodes
+        assert "read_content" in graph.nodes
+        assert "summarize" in graph.nodes
+
+        # Graph should have edges connecting the nodes
+        assert len(graph.edges) > 0
 
     @pytest.mark.django_db
     def test_read_content_node_with_document(self, shared_dict, mock_context, db):
@@ -264,16 +270,13 @@ class TestFlowExecution:
         from accounts.models import Account
         from documents.models import Folder, Markdown
         from projects.models import Project
-        from workspaces.models import Workspace
 
         # Create test folder with documents
         org = Account.objects.create(name="Test Org")
         project = Project.objects.create(organization=org, name="Test Project")
-        workspace = Workspace.objects.create(project=project, name="Test Workspace")
         folder = Folder.objects.create(
             organization=org,
             project=project,
-            workspace=workspace,
             name="Test Folder",
         )
         Markdown.objects.create(
@@ -367,14 +370,12 @@ class TestWorkflowRunner:
 
         org = MagicMock()
         project = MagicMock()
-        workspace = MagicMock()
         user = MagicMock()
 
-        runner = WorkflowRunner(org, project, workspace, user)
+        runner = WorkflowRunner(org, project, user)
 
         assert runner.organization == org
         assert runner.project == project
-        assert runner.workspace == workspace
         assert runner.user == user
         assert runner.service_registry is not None
 
@@ -387,7 +388,6 @@ class TestWorkflowRunner:
 
         from accounts.models import Account
         from projects.models import Project
-        from workspaces.models import Workspace
         from workflows.exceptions import WorkflowError
 
         User = get_user_model()
@@ -395,11 +395,8 @@ class TestWorkflowRunner:
         user = User.objects.create_user(username="missing_input_user")
         org = Account.objects.create(name="Missing Input Test Org")
         project = Project.objects.create(organization=org, name="Missing Input Test Project", created_by=user)
-        # Use the default workspace created by signal instead of creating another
-        from accounts.utils import get_project_default_workspace
-        workspace = get_project_default_workspace(project)
 
-        runner = WorkflowRunner(org, project, workspace, user)
+        runner = WorkflowRunner(org, project, user)
 
         with pytest.raises(WorkflowError) as exc_info:
             asyncio.run(

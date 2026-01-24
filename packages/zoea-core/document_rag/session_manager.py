@@ -15,10 +15,8 @@ from datetime import timedelta
 
 from asgiref.sync import sync_to_async
 from django.contrib.auth import get_user_model
-from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
-from context_clipboards.models import Clipboard
 from documents.models import Collection, Document, Folder
 
 from .models import DEFAULT_SESSION_TTL, RAGSession
@@ -53,7 +51,6 @@ class RAGSessionManager:
         context_type: str,
         context_id: int,
         project,
-        workspace,
         *,
         ttl: timedelta | None = None,
     ) -> RAGSession:
@@ -62,10 +59,9 @@ class RAGSessionManager:
 
         Args:
             user: User creating the session
-            context_type: Type of context (single, folder, clipboard, collection)
+            context_type: Type of context (single, folder, collection)
             context_id: ID of the context item
             project: Project instance
-            workspace: Workspace instance
             ttl: Optional custom session TTL
 
         Returns:
@@ -81,7 +77,6 @@ class RAGSessionManager:
         documents = await self._resolve_documents(
             context_type,
             context_id,
-            workspace=workspace,
             organization=organization,
             project=project,
             user=user,
@@ -94,7 +89,6 @@ class RAGSessionManager:
         session = await RAGSession.objects.acreate(
             organization=organization,
             project=project,
-            workspace=workspace,
             created_by=user,
             context_type=context_type,
             context_id=context_id,
@@ -159,7 +153,6 @@ class RAGSessionManager:
         context_type: str,
         context_id: int,
         *,
-        workspace,
         organization,
         project,
         user: User,
@@ -170,7 +163,9 @@ class RAGSessionManager:
         Args:
             context_type: Type of context
             context_id: ID of the context item
-            workspace: Workspace for context
+            organization: Organization for context
+            project: Project for context
+            user: User requesting the documents
 
         Returns:
             List of Document instances
@@ -180,7 +175,7 @@ class RAGSessionManager:
                 doc = await Document.objects.select_subclasses().aget(
                     id=context_id,
                     organization=organization,
-                    workspace=workspace,
+                    project=project,
                 )
             except Document.DoesNotExist:
                 return []
@@ -192,7 +187,6 @@ class RAGSessionManager:
                     id=context_id,
                     organization=organization,
                     project=project,
-                    workspace=workspace,
                 )
             except Folder.DoesNotExist:
                 return []
@@ -200,64 +194,9 @@ class RAGSessionManager:
                 Document.objects.select_subclasses().filter(
                     folder=folder,
                     organization=organization,
-                    workspace=workspace,
+                    project=project,
                 )
             )
-
-        elif context_type == RAGSession.ContextType.CLIPBOARD:
-            try:
-                clipboard = await Clipboard.objects.aget(
-                    id=context_id,
-                    owner=user,
-                    workspace=workspace,
-                )
-            except Clipboard.DoesNotExist:
-                return []
-            items = await sync_to_async(list)(clipboard.items.select_related("content_type").all())
-
-            # Get Document content type
-            doc_content_type = await sync_to_async(ContentType.objects.get_for_model)(Document)
-
-            raw_doc_ids: list[int] = []
-            for item in items:
-                if item.content_type and item.content_type.id == doc_content_type.id:
-                    try:
-                        raw_doc_ids.append(int(item.object_id))
-                    except (TypeError, ValueError):
-                        logger.warning(
-                            "Clipboard item references invalid document id: %s", item.object_id
-                        )
-
-            if not raw_doc_ids:
-                return []
-
-            doc_ids: list[int] = []
-            seen_ids: set[int] = set()
-            for doc_id in raw_doc_ids:
-                if doc_id not in seen_ids:
-                    doc_ids.append(doc_id)
-                    seen_ids.add(doc_id)
-
-            docs = await sync_to_async(list)(
-                Document.objects.select_subclasses().filter(
-                    id__in=doc_ids,
-                    organization=organization,
-                    workspace=workspace,
-                )
-            )
-            docs_by_id = {doc.id: doc for doc in docs}
-
-            documents: list[Document] = []
-            for doc_id in doc_ids:
-                doc = docs_by_id.get(doc_id)
-                if doc:
-                    documents.append(doc)
-                else:
-                    logger.warning(
-                        "Clipboard item references non-existent/out-of-scope document: %s",
-                        doc_id,
-                    )
-            return documents
 
         elif context_type == RAGSession.ContextType.COLLECTION:
             try:
@@ -265,7 +204,6 @@ class RAGSessionManager:
                     id=context_id,
                     organization=organization,
                     project=project,
-                    workspace=workspace,
                 )
             except Collection.DoesNotExist:
                 return []
@@ -273,7 +211,7 @@ class RAGSessionManager:
                 Document.objects.select_subclasses().filter(
                     collections=collection,
                     organization=organization,
-                    workspace=workspace,
+                    project=project,
                 )
             )
 
@@ -284,7 +222,7 @@ class RAGSessionManager:
         self,
         context_type: str,
         context_id: int,
-        workspace,
+        project,
     ) -> RAGSession | None:
         """
         Find an existing active session for the given context.
@@ -292,14 +230,14 @@ class RAGSessionManager:
         Args:
             context_type: Type of context
             context_id: ID of the context item
-            workspace: Workspace instance
+            project: Project instance
 
         Returns:
             RAGSession if found and active, None otherwise
         """
         try:
             session = await RAGSession.objects.filter(
-                workspace=workspace,
+                project=project,
                 context_type=context_type,
                 context_id=context_id,
                 status=RAGSession.Status.ACTIVE,

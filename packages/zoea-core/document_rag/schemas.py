@@ -13,10 +13,9 @@ from ninja import Schema
 class CreateRAGSessionRequest(Schema):
     """Request to create a new RAG session."""
 
-    context_type: Literal["single", "folder", "clipboard", "collection"]
+    context_type: Literal["single", "folder", "collection"]
     context_id: int
     project_id: int
-    workspace_id: int
     reuse_existing: bool = True  # If True, reuse active session for same context
 
 

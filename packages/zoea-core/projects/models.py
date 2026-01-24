@@ -219,17 +219,6 @@ class Project(models.Model):
                 raise ValidationError({
                     'email_alias': f'Email alias "{self.email_alias}" conflicts with an existing project slug.'
                 })
-            # Check for conflict with workspace aliases in the same org (cross-model uniqueness)
-            # Note: This check is only valid after Workspace has email_alias field
-            from workspaces.models import Workspace
-            if hasattr(Workspace, 'email_alias'):
-                if Workspace.objects.filter(
-                    project__organization=self.organization,
-                    email_alias=self.email_alias
-                ).exists():
-                    raise ValidationError({
-                        'email_alias': f'Email alias "{self.email_alias}" is already used by a workspace.'
-                    })
 
     def save(self, *args, **kwargs):
         """Auto-generate slug and canonical_email from name if not set."""

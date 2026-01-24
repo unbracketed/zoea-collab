@@ -131,7 +131,6 @@ def run_workflow(
         None, help="Input values as key=value pairs (e.g., issue_number=7)"
     ),
     project: Optional[str] = typer.Option(None, "--project", "-p", help="Project name"),
-    workspace: Optional[str] = typer.Option(None, "--workspace", "-w", help="Workspace name"),
     org: Optional[str] = typer.Option(None, "--org", "-o", help="Organization name"),
     user_id: Optional[int] = typer.Option(None, "--user", "-u", help="User ID to run workflow as"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show what would run without running"),
@@ -150,7 +149,6 @@ def run_workflow(
     from workflows.runner import WorkflowRunner
 
     Project = apps.get_model("projects", "Project")
-    Workspace = apps.get_model("workspaces", "Workspace")
     User = apps.get_model("auth", "User")
 
     # Get user for CLI context
@@ -208,19 +206,6 @@ def run_workflow(
         print_error(f"Project not found: {project}")
         raise typer.Exit(code=1)
 
-    # Get workspace
-    try:
-        if workspace:
-            ws = Workspace.objects.get(name=workspace, project=proj)
-        else:
-            ws = Workspace.objects.filter(project=proj).first()
-            if not ws:
-                print_error("No workspaces found. Create a workspace first or specify --workspace.")
-                raise typer.Exit(code=1)
-    except Workspace.DoesNotExist:
-        print_error(f"Workspace not found: {workspace}")
-        raise typer.Exit(code=1)
-
     # Parse inputs
     input_dict = {}
     if inputs:
@@ -254,7 +239,6 @@ def run_workflow(
 [bold magenta]User:[/] {user.username} (id={user.id})
 [bold yellow]Organization:[/] {organization.name}
 [bold yellow]Project:[/] {proj.name}
-[bold yellow]Workspace:[/] {ws.name}
 [bold green]Inputs:[/] {input_dict or '(none)'}
 [bold blue]Config:[/] {config_path}
         """,
@@ -265,13 +249,11 @@ def run_workflow(
 
     print_info(f"Running workflow: {workflow}")
     console.print(f"  Project: {proj.name}", style="dim")
-    console.print(f"  Workspace: {ws.name}", style="dim")
     console.print(f"  Inputs: {input_dict}", style="dim")
 
     runner = WorkflowRunner(
         organization=organization,
         project=proj,
-        workspace=ws,
         user=user,
     )
 

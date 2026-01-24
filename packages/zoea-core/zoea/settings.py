@@ -60,9 +60,7 @@ INSTALLED_APPS = [
     'allauth.account',  # Registration and account management
     'accounts',
     'chat',
-    'context_clipboards',
     'projects',
-    'workspaces',
     'documents',
     'document_rag',
     'agents',
@@ -73,6 +71,10 @@ INSTALLED_APPS = [
     'events',
     'email_gateway',
     'flows',
+    'platform_adapters',
+    'sandboxes',
+    'agent_wrappers',
+    'output_dispatch',
     'django_q',
 ]
 

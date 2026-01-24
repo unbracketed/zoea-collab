@@ -12,7 +12,6 @@ from accounts.models import Account
 from documents.import_service import DocumentImportService, ImportLimitError
 from documents.models import Document, Folder, PDF
 from projects.models import Project
-from workspaces.models import Workspace
 
 
 User = get_user_model()
@@ -43,18 +42,8 @@ def project(organization, user):
     )
 
 
-@pytest.fixture
-def workspace(project, user):
-    return Workspace.objects.create(
-        project=project,
-        name="Import Workspace",
-        created_by=user,
-        parent=None,
-    )
-
-
 @pytest.mark.django_db
-def test_import_directory_creates_documents(tmp_path, organization, project, workspace, user, settings):
+def test_import_directory_creates_documents(tmp_path, organization, project, user, settings):
     settings.ZOEA_IMPORT_ALLOWED_ROOTS = [str(tmp_path)]
 
     root = tmp_path / "import-root"
@@ -69,7 +58,6 @@ def test_import_directory_creates_documents(tmp_path, organization, project, wor
     service = DocumentImportService(
         organization=organization,
         project=project,
-        workspace=workspace,
         created_by=user,
         create_root_folder=True,
     )
@@ -83,17 +71,17 @@ def test_import_directory_creates_documents(tmp_path, organization, project, wor
     root_folder = Folder.objects.get(name="import-root")
     docs_folder = Folder.objects.get(parent=root_folder, name="docs")
 
-    docs = Document.objects.select_subclasses().filter(workspace=workspace)
+    docs = Document.objects.select_subclasses().filter(project=project)
     names = {doc.name for doc in docs}
     assert names == {"readme", "data", "report"}
 
     pdf_doc = PDF.objects.get(name="report")
     assert pdf_doc.folder == root_folder
-    assert docs_folder.workspace == workspace
+    assert docs_folder.project == project
 
 
 @pytest.mark.django_db
-def test_import_archive_single_root(tmp_path, organization, project, workspace, user, settings):
+def test_import_archive_single_root(tmp_path, organization, project, user, settings):
     settings.ZOEA_IMPORT_ALLOWED_ROOTS = [str(tmp_path)]
 
     archive_path = tmp_path / "bundle.zip"
@@ -104,7 +92,6 @@ def test_import_archive_single_root(tmp_path, organization, project, workspace, 
     service = DocumentImportService(
         organization=organization,
         project=project,
-        workspace=workspace,
         created_by=user,
         create_root_folder=True,
     )
@@ -120,7 +107,7 @@ def test_import_archive_single_root(tmp_path, organization, project, workspace, 
 
 
 @pytest.mark.django_db
-def test_import_directory_enforces_file_size_limit(tmp_path, organization, project, workspace, user, settings):
+def test_import_directory_enforces_file_size_limit(tmp_path, organization, project, user, settings):
     settings.ZOEA_IMPORT_ALLOWED_ROOTS = [str(tmp_path)]
     settings.ZOEA_IMPORT_MAX_FILE_SIZE_BYTES = 1
 
@@ -131,7 +118,6 @@ def test_import_directory_enforces_file_size_limit(tmp_path, organization, proje
     service = DocumentImportService(
         organization=organization,
         project=project,
-        workspace=workspace,
         created_by=user,
         create_root_folder=True,
     )

@@ -14,7 +14,7 @@ from ninja import Router
 from ninja.errors import HttpError
 
 from accounts.utils import aget_user_organization
-from workspaces.models import Workspace
+from projects.models import Project
 
 from .models import (
     CollectionType,
@@ -65,24 +65,24 @@ async def _require_organization(user):
     return organization
 
 
-async def _get_workspace(workspace_id: int, organization) -> Workspace:
-    """Get workspace by ID, ensuring it belongs to the organization."""
+async def _get_project(project_id: int, organization) -> Project:
+    """Get project by ID, ensuring it belongs to the organization."""
 
     @sync_to_async
     def _fetch():
         try:
-            return Workspace.objects.select_related("project__organization").get(
-                id=workspace_id,
-                project__organization=organization,
+            return Project.objects.select_related("organization").get(
+                id=project_id,
+                organization=organization,
             )
-        except Workspace.DoesNotExist as exc:
-            raise HttpError(404, "Workspace not found or access denied") from exc
+        except Project.DoesNotExist as exc:
+            raise HttpError(404, "Project not found or access denied") from exc
 
     return await _fetch()
 
 
-async def _get_folder(folder_id: int, *, organization, workspace) -> Folder:
-    """Get folder by ID, ensuring it belongs to the organization and workspace."""
+async def _get_folder(folder_id: int, *, organization, project) -> Folder:
+    """Get folder by ID, ensuring it belongs to the organization and project."""
 
     @sync_to_async
     def _fetch():
@@ -90,7 +90,7 @@ async def _get_folder(folder_id: int, *, organization, workspace) -> Folder:
             return Folder.objects.get(
                 id=folder_id,
                 organization=organization,
-                workspace=workspace,
+                project=project,
             )
         except Folder.DoesNotExist as exc:
             raise HttpError(404, "Folder not found or access denied") from exc
@@ -110,12 +110,12 @@ async def _get_notebook(
     def _fetch():
         try:
             return DocumentCollection.objects.select_related(
-                "workspace__project__organization"
+                "project__organization"
             ).get(
                 id=notebook_id,
                 collection_type=CollectionType.NOTEBOOK,
                 owner=owner,
-                workspace__project__organization=organization,
+                project__organization=organization,
             )
         except DocumentCollection.DoesNotExist as exc:
             raise HttpError(404, "Notebook not found or access denied") from exc
@@ -129,7 +129,7 @@ def _serialize_notebook(notebook: DocumentCollection) -> dict:
         "id": notebook.id,
         "name": notebook.name,
         "description": notebook.description,
-        "workspace_id": notebook.workspace_id,
+        "project_id": notebook.project_id,
         "owner_id": notebook.owner_id,
         "is_active": notebook.is_active,
         "is_recent": notebook.is_recent,
@@ -205,14 +205,14 @@ async def _resolve_content_type(label: str) -> ContentType:
 
 
 async def _get_virtual_node(
-    node_id: int, workspace: Workspace
+    node_id: int, project: Project
 ) -> VirtualCollectionNode:
     """Get virtual collection node by ID."""
 
     @sync_to_async
     def _fetch():
         try:
-            return VirtualCollectionNode.objects.get(id=node_id, workspace=workspace)
+            return VirtualCollectionNode.objects.get(id=node_id, project=project)
         except VirtualCollectionNode.DoesNotExist as exc:
             raise HttpError(404, "Virtual collection node not found") from exc
 
@@ -227,25 +227,25 @@ async def _get_virtual_node(
 @router.get("/", response=NotebookListResponse)
 async def list_notebooks(
     request,
-    workspace_id: int,
+    project_id: int,
     include_recent: bool = False,
 ):
-    """List notebooks for a workspace and user.
+    """List notebooks for a project and user.
 
     Args:
-        workspace_id: The workspace to list notebooks for.
+        project_id: The project to list notebooks for.
         include_recent: Whether to include recently used (inactive) notebooks.
 
     Returns:
         NotebookListResponse with list of notebooks.
     """
     organization = await _require_organization(request.user)
-    workspace = await _get_workspace(workspace_id, organization)
+    project = await _get_project(project_id, organization)
 
     @sync_to_async
     def _list():
         qs = (
-            DocumentCollection.objects.for_workspace(workspace)
+            DocumentCollection.objects.filter(project=project)
             .for_owner(request.user)
             .notebooks()
             .order_by("-is_active", "-activated_at", "-updated_at")
@@ -261,16 +261,16 @@ async def list_notebooks(
 
 @router.post("/", response={201: NotebookDetailResponse})
 async def create_notebook(request, payload: NotebookCreateRequest):
-    """Create a new notebook scoped to the user/workspace.
+    """Create a new notebook scoped to the user/project.
 
     Args:
-        payload: NotebookCreateRequest with workspace_id, name, description, activate.
+        payload: NotebookCreateRequest with project_id, name, description, activate.
 
     Returns:
         201 response with NotebookDetailResponse.
     """
     organization = await _require_organization(request.user)
-    workspace = await _get_workspace(payload.workspace_id, organization)
+    project = await _get_project(payload.project_id, organization)
 
     service = NotebookService(actor=request.user)
 
@@ -278,10 +278,10 @@ async def create_notebook(request, payload: NotebookCreateRequest):
     def _create():
         notebook = DocumentCollection.objects.create(
             organization=organization,
-            workspace=workspace,
+            project=project,
             owner=request.user,
             collection_type=CollectionType.NOTEBOOK,
-            name=payload.name or f"{workspace.name} Notebook",
+            name=payload.name or f"{project.name} Notebook",
             description=payload.description or "",
             created_by=request.user,
         )
@@ -334,7 +334,7 @@ async def get_notebook(request, notebook_id: int, include_items: bool = False):
 
 @router.post("/{notebook_id}/activate", response=NotebookActivateResponse)
 async def activate_notebook(request, notebook_id: int):
-    """Activate a notebook for the current user and workspace.
+    """Activate a notebook for the current user and project.
 
     Args:
         notebook_id: The notebook ID to activate.
@@ -499,7 +499,7 @@ async def save_notebook_as_document(
     """Save the current notebook notepad as a shared YooptaDocument.
 
     Notepads are private by default (notebook-scoped). This endpoint creates a new
-    YooptaDocument in the notebook's project/workspace to make the content shareable.
+    YooptaDocument in the notebook's project to make the content shareable.
 
     Args:
         notebook_id: The notebook ID.
@@ -518,7 +518,7 @@ async def save_notebook_as_document(
         folder = await _get_folder(
             payload.folder_id,
             organization=organization,
-            workspace=notebook.workspace,
+            project=notebook.project,
         )
 
     @sync_to_async
@@ -527,8 +527,7 @@ async def save_notebook_as_document(
         content_json = json.dumps(content_dict)
         document = YooptaDocument.objects.create(
             organization=organization,
-            project=notebook.workspace.project,
-            workspace=notebook.workspace,
+            project=notebook.project,
             name=payload.name or f"{notebook.name} (Notepad)",
             description=payload.description or "",
             content=content_json,
@@ -605,7 +604,7 @@ async def create_notebook_item(
     virtual_node = None
     if payload.virtual_node_id:
         virtual_node = await _get_virtual_node(
-            payload.virtual_node_id, notebook.workspace
+            payload.virtual_node_id, notebook.project
         )
 
     service = NotebookService(actor=request.user)

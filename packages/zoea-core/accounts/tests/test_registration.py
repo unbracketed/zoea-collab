@@ -14,7 +14,6 @@ from organizations.models import OrganizationOwner, OrganizationUser
 
 from accounts.models import Account
 from projects.models import Project
-from workspaces.models import Workspace
 
 User = get_user_model()
 
@@ -186,8 +185,8 @@ class TestOrganizationIntegration:
         assert organization is not None
         assert "orgtest's Organization" in organization.name
 
-    def test_signup_creates_project_and_workspace(self):
-        """Test that signup creates default project and workspace via signals."""
+    def test_signup_creates_project(self):
+        """Test that signup creates default project via signals."""
         from django.test import Client
         client = Client()
 
@@ -207,10 +206,6 @@ class TestOrganizationIntegration:
         # Project should be created
         project = Project.objects.filter(organization=organization).first()
         assert project is not None
-
-        # Workspace should be created
-        workspace = Workspace.objects.filter(project=project, parent=None).first()
-        assert workspace is not None
 
     def test_signup_makes_user_organization_owner(self):
         """Test that the new user is made the owner of their organization."""

@@ -44,9 +44,6 @@ def list_chats(
     project: str | None = typer.Option(
         None, "--project", "-p", help="Filter by project name"
     ),
-    workspace: str | None = typer.Option(
-        None, "--workspace", "-w", help="Filter by workspace name"
-    ),
     agent: str | None = typer.Option(None, "--agent", "-a", help="Filter by agent name"),
     limit: int = typer.Option(20, "--limit", "-l", help="Maximum number of results"),
     format: OutputFormat = FormatOption,
@@ -56,11 +53,10 @@ def list_chats(
         Conversation = apps.get_model("chat", "Conversation")
         Organization = apps.get_model("organizations", "Organization")
         Project = apps.get_model("projects", "Project")
-        Workspace = apps.get_model("workspaces", "Workspace")
 
         # Build query with related objects
         conversations = Conversation.objects.all().select_related(
-            "organization", "project", "workspace", "created_by"
+            "organization", "project", "created_by"
         )
 
         # Apply organization filter
@@ -81,16 +77,6 @@ def list_chats(
             except Project.DoesNotExist:
                 print_error(f"Project not found: {project}")
                 raise typer.Exit(code=1)
-
-        # Apply workspace filter
-        if workspace:
-            workspaces = Workspace.objects.filter(name=workspace)
-            if project:
-                workspaces = workspaces.filter(project__name=project)
-            if not workspaces.exists():
-                print_error(f"Workspace not found: {workspace}")
-                raise typer.Exit(code=1)
-            conversations = conversations.filter(workspace__in=workspaces)
 
         # Apply agent filter
         if agent:
@@ -113,7 +99,6 @@ def list_chats(
                 "agent_name": conv.agent_name,
                 "organization": conv.organization.name if conv.organization else None,
                 "project": conv.project.name if conv.project else None,
-                "workspace": conv.workspace.name if conv.workspace else None,
                 "created_by": conv.created_by.username if conv.created_by else None,
                 "message_count": conv.message_count(),
                 "created_at": conv.created_at.isoformat() if conv.created_at else None,
@@ -176,7 +161,7 @@ def show_chat(
 
         try:
             conversation = Conversation.objects.select_related(
-                "organization", "project", "workspace", "created_by"
+                "organization", "project", "created_by"
             ).get(id=conversation_id)
         except Conversation.DoesNotExist:
             print_error(f"Conversation not found: {conversation_id}")
@@ -192,7 +177,6 @@ def show_chat(
                 "agent_name": conv.agent_name,
                 "organization": conv.organization.name if conv.organization else None,
                 "project": conv.project.name if conv.project else None,
-                "workspace": conv.workspace.name if conv.workspace else None,
                 "created_by": conv.created_by.username if conv.created_by else None,
                 "message_count": conv.message_count(),
                 "user_message_count": conv.user_message_count(),
@@ -221,7 +205,6 @@ def show_chat(
 [bold magenta]Location:[/]
   Organization: {conv.organization.name if conv.organization else 'N/A'}
   Project: {conv.project.name if conv.project else 'N/A'}
-  Workspace: {conv.workspace.name if conv.workspace else 'N/A'}
 
 [bold blue]Statistics:[/]
   Total Messages: {conv.message_count()}
@@ -293,7 +276,7 @@ def delete_chat(
 
         try:
             conversation = Conversation.objects.select_related(
-                "project", "workspace"
+                "project"
             ).get(id=conversation_id)
         except Conversation.DoesNotExist:
             print_error(f"Conversation not found: {conversation_id}")

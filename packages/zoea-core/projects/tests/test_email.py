@@ -1,4 +1,4 @@
-"""Tests for project and workspace email address features."""
+"""Tests for project email address features."""
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -10,14 +10,12 @@ from projects.models import Project
 from projects.email_utils import (
     slugify_for_email,
     generate_project_canonical_email,
-    generate_workspace_canonical_email,
     generate_alias_email,
     validate_email_alias,
     parse_inbound_email,
     resolve_email_recipient,
     get_email_domain,
 )
-from workspaces.models import Workspace
 
 User = get_user_model()
 
@@ -61,11 +59,6 @@ class TestGenerateCanonicalEmail:
         """Project canonical email follows format."""
         email = generate_project_canonical_email("zoea-dev", "team-zoea")
         assert email == "zoea-dev.team-zoea@zoea.studio"
-
-    def test_workspace_canonical_email(self):
-        """Workspace canonical email follows format."""
-        email = generate_workspace_canonical_email("research", "zoea-dev", "team-zoea")
-        assert email == "research.zoea-dev.team-zoea@zoea.studio"
 
     def test_long_project_slug_truncation(self):
         """Long project slugs are truncated to fit RFC 5321."""
@@ -129,15 +122,6 @@ class TestParseInboundEmail:
         parsed = parse_inbound_email("zoea-dev.team-zoea@zoea.studio")
         assert parsed.org_slug == "team-zoea"
         assert parsed.project_slug == "zoea-dev"
-        assert parsed.workspace_slug is None
-        assert parsed.domain == "zoea.studio"
-
-    def test_three_part_address(self):
-        """Three-part address is workspace canonical format."""
-        parsed = parse_inbound_email("research.zoea-dev.team-zoea@zoea.studio")
-        assert parsed.org_slug == "team-zoea"
-        assert parsed.project_slug == "zoea-dev"
-        assert parsed.workspace_slug == "research"
         assert parsed.domain == "zoea.studio"
 
     def test_single_part_address(self):
@@ -145,7 +129,6 @@ class TestParseInboundEmail:
         parsed = parse_inbound_email("team-zoea@zoea.studio")
         assert parsed.org_slug == "team-zoea"
         assert parsed.project_slug is None
-        assert parsed.workspace_slug is None
 
     def test_invalid_address_no_at(self):
         """Invalid address without @ returns empty."""
@@ -162,11 +145,11 @@ class TestParseInboundEmail:
 
 @pytest.mark.django_db
 class TestResolveEmailRecipient:
-    """Tests for resolving email recipients to projects/workspaces."""
+    """Tests for resolving email recipients to projects."""
 
     @pytest.fixture
     def org_with_projects(self):
-        """Create organization with projects and workspaces."""
+        """Create organization with projects."""
         org = Account.objects.create(name="Team Zoea", subscription_plan="free")
         user = User.objects.create_user(
             username="testuser", email="test@example.com", password="password123"
@@ -183,59 +166,28 @@ class TestResolveEmailRecipient:
         project.email_alias = "proj"
         project.save()
 
-        # Create workspace
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Research",
-            description="Research workspace",
-            created_by=user,
-        )
-        workspace.email_alias = "research"
-        workspace.save()
-
-        return org, project, workspace, user
+        return org, project, user
 
     def test_resolve_project_canonical(self, org_with_projects):
         """Resolve project by canonical email."""
-        _org, project, _workspace, _user = org_with_projects
+        _org, project, _user = org_with_projects
 
         resolved = resolve_email_recipient(project.canonical_email)
         assert resolved.project == project
-        assert resolved.workspace is None
         assert resolved.resolved_via == "project_canonical"
-
-    def test_resolve_workspace_canonical(self, org_with_projects):
-        """Resolve workspace by canonical email."""
-        _org, project, workspace, _user = org_with_projects
-
-        resolved = resolve_email_recipient(workspace.canonical_email)
-        assert resolved.project == project
-        assert resolved.workspace == workspace
-        assert resolved.resolved_via == "workspace_canonical"
 
     def test_resolve_project_alias(self, org_with_projects):
         """Resolve project by alias email."""
-        _org, project, _workspace, _user = org_with_projects
+        _org, project, _user = org_with_projects
 
         resolved = resolve_email_recipient(project.alias_email)
         assert resolved.project == project
-        assert resolved.workspace is None
         assert resolved.resolved_via == "project_alias"
-
-    def test_resolve_workspace_alias(self, org_with_projects):
-        """Resolve workspace by alias email."""
-        _org, project, workspace, _user = org_with_projects
-
-        resolved = resolve_email_recipient(workspace.alias_email)
-        assert resolved.project == project
-        assert resolved.workspace == workspace
-        assert resolved.resolved_via == "workspace_alias"
 
     def test_resolve_unknown_email(self, org_with_projects):
         """Unknown email returns not_found."""
         resolved = resolve_email_recipient("unknown.unknown@zoea.studio")
         assert resolved.project is None
-        assert resolved.workspace is None
         assert resolved.resolved_via == "not_found"
 
 
@@ -336,84 +288,6 @@ class TestProjectEmailFields:
         # Database unique_together constraint prevents duplicate aliases
         with pytest.raises(IntegrityError):
             project2.save()
-
-
-@pytest.mark.django_db
-class TestWorkspaceEmailFields:
-    """Tests for Workspace model email fields."""
-
-    @pytest.fixture
-    def project_with_org(self):
-        """Create organization, user, and project."""
-        org = Account.objects.create(name="Test Org", subscription_plan="free")
-        user = User.objects.create_user(
-            username="testuser", email="test@example.com", password="password123"
-        )
-        OrganizationUser.objects.create(organization=org, user=user, is_admin=True)
-        project = Project.objects.create(
-            organization=org,
-            name="Test Project",
-            working_directory="/tmp/test",
-            created_by=user,
-        )
-        return org, user, project
-
-    def test_canonical_email_auto_generated(self, project_with_org):
-        """Canonical email is auto-generated on save."""
-        org, user, project = project_with_org
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Research",
-            description="Research workspace",
-            created_by=user,
-        )
-
-        assert workspace.canonical_email is not None
-        assert "research" in workspace.canonical_email
-        assert project.slug in workspace.canonical_email
-        assert org.slug in workspace.canonical_email
-
-    def test_alias_email_property(self, project_with_org):
-        """alias_email property returns full email when alias set."""
-        org, user, project = project_with_org
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Research",
-            description="Research workspace",
-            created_by=user,
-        )
-
-        # No alias initially
-        assert workspace.alias_email is None
-
-        # Set alias
-        workspace.email_alias = "research-alias"
-        workspace.save()
-        workspace.refresh_from_db()
-
-        assert workspace.alias_email is not None
-        assert "research-alias" in workspace.alias_email
-        assert org.slug in workspace.alias_email
-
-    def test_cross_model_alias_uniqueness(self, project_with_org):
-        """Workspace alias cannot conflict with project alias in same org."""
-        org, user, project = project_with_org
-
-        # Set project alias
-        project.email_alias = "shared-alias"
-        project.save()
-
-        # Try to set same alias on workspace
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Research",
-            description="Research workspace",
-            created_by=user,
-        )
-        workspace.email_alias = "shared-alias"
-
-        with pytest.raises(ValidationError):
-            workspace.clean()
 
 
 @pytest.mark.django_db

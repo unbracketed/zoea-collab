@@ -288,7 +288,7 @@ def list_thread_attachments(request, thread_id: int):
 
     try:
         thread = EmailThread.objects.select_related(
-            "organization", "project", "workspace", "attachments"
+            "organization", "project", "attachments"
         ).get(id=thread_id, organization=organization)
     except EmailThread.DoesNotExist as exc:
         raise HttpError(404, "Email thread not found") from exc

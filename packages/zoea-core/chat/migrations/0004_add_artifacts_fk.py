@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('chat', '0003_conversation_workspace_and_more'),
-        ('documents', '0011_migrate_clipboard_to_notebook'),
+        ('documents', '0010_alter_collection_options_alter_collection_created_by_and_more'),
     ]
 
     operations = [

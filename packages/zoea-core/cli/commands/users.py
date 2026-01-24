@@ -92,8 +92,6 @@ def create_user(
     - A new user account
     - An organization with the user as owner
     - A default project (created automatically by signals)
-    - A default workspace (created automatically by signals)
-    - A default clipboard (created automatically by signals)
 
     Examples:
         # Interactive mode (prompts for all required fields)
@@ -189,8 +187,6 @@ def create_user(
 
             organization = result["organization"]
             project = result["project"]
-            workspace = result["workspace"]
-            clipboard = result["clipboard"]
 
         # Output based on format
         if format == OutputFormat.JSON:
@@ -212,14 +208,6 @@ def create_user(
                     "id": project.id,
                     "name": project.name,
                     "working_directory": project.working_directory,
-                },
-                "workspace": {
-                    "id": workspace.id,
-                    "name": workspace.name,
-                },
-                "clipboard": {
-                    "id": clipboard.id,
-                    "name": clipboard.name,
                 },
             })
         else:
@@ -245,16 +233,6 @@ def create_user(
   ID: {project.id}
   Name: {project.name}
   Working Directory: {project.working_directory}
-
-[bold blue]Workspace:[/]
-  ID: {workspace.id}
-  Name: {workspace.name}
-  Path: {workspace.get_full_path()}
-
-[bold magenta]Clipboard:[/]
-  ID: {clipboard.id}
-  Name: {clipboard.name}
-  Active: {'Yes' if clipboard.is_active else 'No'}
 """
 
             panel = Panel(details, title="User Created Successfully", border_style="green")

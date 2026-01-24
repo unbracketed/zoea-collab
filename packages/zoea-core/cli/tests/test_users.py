@@ -202,7 +202,7 @@ class TestUsersCreate:
         assert "Invalid subscription plan" in result.stdout
 
     def test_create_user_creates_full_setup(self, runner):
-        """Test that creating a user creates organization, project, workspace, and clipboard."""
+        """Test that creating a user creates organization and project."""
         result = runner.invoke(
             app,
             [
@@ -232,15 +232,11 @@ class TestUsersCreate:
         assert "user" in output
         assert "organization" in output
         assert "project" in output
-        assert "workspace" in output
-        assert "clipboard" in output
 
         # Verify IDs are present
         assert output["user"]["id"] is not None
         assert output["organization"]["id"] is not None
         assert output["project"]["id"] is not None
-        assert output["workspace"]["id"] is not None
-        assert output["clipboard"]["id"] is not None
 
     def test_create_user_json_format(self, runner):
         """Test that JSON format output is valid."""
@@ -295,6 +291,4 @@ class TestUsersCreate:
         assert "User:" in result.stdout
         assert "Organization:" in result.stdout
         assert "Project:" in result.stdout
-        assert "Workspace:" in result.stdout
-        assert "Clipboard:" in result.stdout
         assert "Next Steps:" in result.stdout

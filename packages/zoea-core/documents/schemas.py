@@ -36,7 +36,6 @@ class DocumentOut(DocumentBase):
     organization_id: int
     organization_name: str
     project_id: int | None = None
-    workspace_id: int | None = None
     document_type: str = Field(..., description="Type of document (Image, PDF, Markdown, etc.)")
     created_at: datetime
     updated_at: datetime
@@ -186,7 +185,6 @@ class FolderOut(BaseModel):
     is_system: bool = False
     organization_id: int
     project_id: int
-    workspace_id: int
     path: str
     level: int
     ancestors: list[FolderAncestor] = Field(default_factory=list)
@@ -199,7 +197,7 @@ class FolderOut(BaseModel):
 
 class FolderCreateRequest(BaseModel):
     name: str
-    workspace_id: int
+    project_id: int
     description: str | None = None
     parent_id: int | None = None
 
@@ -238,7 +236,6 @@ class DirectoryImportRequest(BaseModel):
 
     path: str = Field(..., description="Absolute directory path on the server")
     project_id: int = Field(..., description="Project the documents belong to")
-    workspace_id: int = Field(..., description="Workspace the documents belong to")
     folder_id: int | None = Field(None, description="Optional target folder id")
     create_root_folder: bool = Field(True, description="Create a root folder for the import")
     root_folder_name: str | None = Field(None, description="Override root folder name")
@@ -256,7 +253,6 @@ class D2DiagramCreateRequest(BaseModel):
     description: str | None = Field(None, description="Optional description")
     content: str = Field(..., description="D2 diagram source content")
     project_id: int = Field(..., description="Project the document belongs to")
-    workspace_id: int = Field(..., description="Workspace the document belongs to")
     folder_id: int | None = Field(None, description="Optional folder id")
 
 
@@ -267,7 +263,6 @@ class MermaidDiagramCreateRequest(BaseModel):
     description: str | None = Field(None, description="Optional description")
     content: str = Field(..., description="Mermaid diagram source content")
     project_id: int = Field(..., description="Project the document belongs to")
-    workspace_id: int = Field(..., description="Workspace the document belongs to")
     folder_id: int | None = Field(None, description="Optional folder id")
 
 
@@ -278,7 +273,6 @@ class MarkdownCreateRequest(BaseModel):
     description: str | None = Field(None, description="Optional description")
     content: str = Field(..., description="Markdown content")
     project_id: int = Field(..., description="Project id")
-    workspace_id: int = Field(..., description="Workspace id")
     folder_id: int | None = Field(None, description="Optional folder id")
 
 
@@ -297,7 +291,6 @@ class ExcalidrawDiagramCreateRequest(BaseModel):
     description: str | None = Field(None, description="Optional description")
     content: str = Field(..., description="Excalidraw JSON content")
     project_id: int = Field(..., description="Project the document belongs to")
-    workspace_id: int = Field(..., description="Workspace the document belongs to")
     folder_id: int | None = Field(None, description="Optional folder id")
     excalidraw_version: str | None = Field(None, description="Excalidraw library version")
 
@@ -318,7 +311,6 @@ class YooptaDocumentCreateRequest(BaseModel):
     description: str | None = Field(None, description="Optional description")
     content: str = Field(..., description="Yoopta JSON content")
     project_id: int = Field(..., description="Project the document belongs to")
-    workspace_id: int = Field(..., description="Workspace the document belongs to")
     folder_id: int | None = Field(None, description="Optional folder id")
     yoopta_version: str | None = Field(None, description="Yoopta-Editor version")
 
@@ -360,7 +352,7 @@ class CreateDocumentFromArtifactRequest(BaseModel):
         ...,
         description="Path to the generated file (must be within MEDIA_ROOT)",
     )
-    workspace_id: int = Field(..., description="Workspace to save the document to")
+    project_id: int = Field(..., description="Project to save the document to")
     title: str | None = Field(None, description="Display title for the document")
     mime_type: str | None = Field(None, description="MIME type of the file")
     folder_id: int | None = Field(None, description="Optional folder to save to")

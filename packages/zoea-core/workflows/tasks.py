@@ -12,7 +12,6 @@ Usage:
         inputs={'document_id': 123},
         organization=org,
         project=project,
-        workspace=workspace,
         user=user,
     )
     # Returns ExecutionRun instance with run.run_id and run.task_id
@@ -32,7 +31,6 @@ def execute_workflow_background(
     inputs: dict,
     org_id: int,
     project_id: int,
-    workspace_id: int,
     user_id: int,
 ) -> dict:
     """
@@ -48,7 +46,6 @@ def execute_workflow_background(
         inputs: Input parameters for the workflow
         org_id: Organization ID for context
         project_id: Project ID for context
-        workspace_id: Workspace ID for context
         user_id: User ID who initiated the run
 
     Returns:
@@ -63,7 +60,6 @@ def execute_workflow_background(
 
     from organizations.models import Organization
     from projects.models import Project
-    from workspaces.models import Workspace
     from execution.models import ExecutionRun
     from workflows.runner import WorkflowRunner
 
@@ -73,7 +69,6 @@ def execute_workflow_background(
     try:
         org = Organization.objects.get(id=org_id)
         project = Project.objects.get(id=project_id)
-        workspace = Workspace.objects.get(id=workspace_id)
         user = get_user_model().objects.get(id=user_id)
     except Exception as e:
         logger.error(f"Failed to load context for run {run_id}: {e}")
@@ -103,7 +98,7 @@ def execute_workflow_background(
             logger.info(f"Discovered workflows: {list(registry.list_workflows().keys())}")
 
         # Execute workflow synchronously within the task
-        runner = WorkflowRunner(org, project, workspace, user)
+        runner = WorkflowRunner(org, project, user)
         result = asyncio.run(runner.run(workflow_slug, inputs))
 
         # Update with results
@@ -138,7 +133,6 @@ def create_and_queue_workflow_run(
     inputs: dict,
     organization,
     project,
-    workspace,
     user,
     timeout: int = 600,
 ):
@@ -152,7 +146,6 @@ def create_and_queue_workflow_run(
         inputs: Input parameters for the workflow
         organization: Organization instance
         project: Project instance
-        workspace: Workspace instance
         user: User instance who initiated the run
         timeout: Task timeout in seconds (default 10 minutes)
 
@@ -173,7 +166,6 @@ def create_and_queue_workflow_run(
         inputs=inputs,
         created_by=user,
         project=project,
-        workspace=workspace,
     )
 
     logger.info(f"Created ExecutionRun {run.run_id} for workflow '{workflow_slug}'")
@@ -186,7 +178,6 @@ def create_and_queue_workflow_run(
         inputs,
         organization.id,
         project.id,
-        workspace.id,
         user.id,
         task_name=f"workflow-{run.run_id}",
         timeout=timeout,

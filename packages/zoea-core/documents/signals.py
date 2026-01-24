@@ -42,7 +42,7 @@ def dispatch_document_event(sender, instance: Document, created: bool, **kwargs)
                 "name": instance.name,
                 "description": getattr(instance, "description", ""),
                 "created_at": instance.created_at.isoformat() if instance.created_at else None,
-                "workspace_id": instance.workspace_id,
+                "project_id": instance.project_id,
                 "folder_id": getattr(instance, "folder_id", None),
             }
 

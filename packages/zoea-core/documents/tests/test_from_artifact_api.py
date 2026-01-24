@@ -16,7 +16,6 @@ from organizations.models import OrganizationUser
 
 from accounts.models import Account
 from projects.models import Project
-from workspaces.models import Workspace
 
 User = get_user_model()
 
@@ -45,17 +44,6 @@ def project(organization, user):
         name="Test Project",
         description="Test Project",
         created_by=user,
-    )
-
-
-@pytest.fixture
-def workspace(project, user):
-    """Create a test workspace."""
-    return Workspace.objects.create(
-        project=project,
-        name="Test Workspace",
-        created_by=user,
-        parent=None,
     )
 
 
@@ -97,7 +85,7 @@ class TestFromArtifactEndpoint:
     """Tests for POST /api/documents/from-artifact endpoint."""
 
     def test_create_image_from_artifact_success(
-        self, authenticated_client, workspace, temp_image_in_media
+        self, authenticated_client, project, temp_image_in_media
     ):
         """Successfully create an Image document from a tool artifact."""
         response = authenticated_client.post(
@@ -105,7 +93,7 @@ class TestFromArtifactEndpoint:
             data={
                 "artifact_type": "image",
                 "file_path": temp_image_in_media,
-                "workspace_id": workspace.id,
+                "project_id": project.id,
                 "title": "Generated Test Image",
                 "mime_type": "image/png",
             },
@@ -121,7 +109,7 @@ class TestFromArtifactEndpoint:
         assert data["document"]["name"] == "Generated Test Image"
 
     def test_create_document_without_title_uses_filename(
-        self, authenticated_client, workspace, temp_image_in_media
+        self, authenticated_client, project, temp_image_in_media
     ):
         """Without a title, should use the file name."""
         response = authenticated_client.post(
@@ -129,7 +117,7 @@ class TestFromArtifactEndpoint:
             data={
                 "artifact_type": "image",
                 "file_path": temp_image_in_media,
-                "workspace_id": workspace.id,
+                "project_id": project.id,
             },
             content_type="application/json",
         )
@@ -140,7 +128,7 @@ class TestFromArtifactEndpoint:
         # Name comes from file stem (test_artifact)
         assert "test_artifact" in data["document"]["name"]
 
-    def test_unauthenticated_request_fails(self, workspace, temp_image_in_media):
+    def test_unauthenticated_request_fails(self, project, temp_image_in_media):
         """Unauthenticated requests should be rejected."""
         client = Client()
         response = client.post(
@@ -148,7 +136,7 @@ class TestFromArtifactEndpoint:
             data={
                 "artifact_type": "image",
                 "file_path": temp_image_in_media,
-                "workspace_id": workspace.id,
+                "project_id": project.id,
             },
             content_type="application/json",
         )
@@ -162,7 +150,7 @@ class TestFromArtifactSecurityValidation:
     """Tests for security validation in the from-artifact endpoint."""
 
     def test_rejects_file_outside_media_root(
-        self, authenticated_client, workspace
+        self, authenticated_client, project
     ):
         """Should reject file paths outside MEDIA_ROOT."""
         response = authenticated_client.post(
@@ -170,7 +158,7 @@ class TestFromArtifactSecurityValidation:
             data={
                 "artifact_type": "image",
                 "file_path": "/etc/passwd",
-                "workspace_id": workspace.id,
+                "project_id": project.id,
             },
             content_type="application/json",
         )
@@ -180,7 +168,7 @@ class TestFromArtifactSecurityValidation:
         assert "must be within media directory" in data["detail"]
 
     def test_rejects_directory_traversal(
-        self, authenticated_client, workspace, settings
+        self, authenticated_client, project, settings
     ):
         """Should reject directory traversal attempts."""
         media_root = Path(settings.MEDIA_ROOT)
@@ -191,7 +179,7 @@ class TestFromArtifactSecurityValidation:
             data={
                 "artifact_type": "image",
                 "file_path": traversal_path,
-                "workspace_id": workspace.id,
+                "project_id": project.id,
             },
             content_type="application/json",
         )
@@ -201,7 +189,7 @@ class TestFromArtifactSecurityValidation:
         assert "must be within media directory" in data["detail"]
 
     def test_rejects_nonexistent_file(
-        self, authenticated_client, workspace, settings
+        self, authenticated_client, project, settings
     ):
         """Should reject paths to files that don't exist."""
         media_root = Path(settings.MEDIA_ROOT)
@@ -212,7 +200,7 @@ class TestFromArtifactSecurityValidation:
             data={
                 "artifact_type": "image",
                 "file_path": nonexistent,
-                "workspace_id": workspace.id,
+                "project_id": project.id,
             },
             content_type="application/json",
         )
@@ -222,7 +210,7 @@ class TestFromArtifactSecurityValidation:
         assert "File not found" in data["detail"]
 
     def test_rejects_unsupported_artifact_type(
-        self, authenticated_client, workspace, temp_image_in_media
+        self, authenticated_client, project, temp_image_in_media
     ):
         """Should return failure for unsupported artifact types."""
         response = authenticated_client.post(
@@ -230,7 +218,7 @@ class TestFromArtifactSecurityValidation:
             data={
                 "artifact_type": "unknown_type",
                 "file_path": temp_image_in_media,
-                "workspace_id": workspace.id,
+                "project_id": project.id,
             },
             content_type="application/json",
         )
@@ -241,11 +229,11 @@ class TestFromArtifactSecurityValidation:
         assert data["success"] is False
         assert "unknown_type" in data["message"]
 
-    def test_rejects_workspace_from_other_organization(
+    def test_rejects_project_from_other_organization(
         self, authenticated_client, temp_image_in_media
     ):
-        """Should reject workspace IDs from other organizations."""
-        # Create another org and workspace
+        """Should reject project IDs from other organizations."""
+        # Create another org and project
         other_org = Account.objects.create(name="Other Organization")
         other_user = User.objects.create_user(
             username="otheruser", email="other@example.com", password="pass123"
@@ -256,23 +244,17 @@ class TestFromArtifactSecurityValidation:
             name="Other Project",
             created_by=other_user,
         )
-        other_workspace = Workspace.objects.create(
-            project=other_project,
-            name="Other Workspace",
-            created_by=other_user,
-            parent=None,
-        )
 
         response = authenticated_client.post(
             "/api/documents/from-artifact",
             data={
                 "artifact_type": "image",
                 "file_path": temp_image_in_media,
-                "workspace_id": other_workspace.id,
+                "project_id": other_project.id,
             },
             content_type="application/json",
         )
 
         assert response.status_code == 404
         data = response.json()
-        assert "Workspace not found" in data["detail"]
+        assert "Project not found" in data["detail"]

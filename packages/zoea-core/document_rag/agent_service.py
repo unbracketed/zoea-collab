@@ -111,7 +111,6 @@ class DocumentRAGAgentService:
         conditions = [
             {"source_type": "document"},
             {"project_id": str(self.session.project_id)},
-            {"workspace_id": str(self.session.workspace_id)},
         ]
 
         context_type = self.session.context_type
@@ -121,10 +120,7 @@ class DocumentRAGAgentService:
             conditions.append({"document_id": str(context_id)})
         elif context_type == RAGSession.ContextType.FOLDER:
             conditions.append({"folder_id": str(context_id)})
-        elif context_type in {
-            RAGSession.ContextType.CLIPBOARD,
-            RAGSession.ContextType.COLLECTION,
-        }:
+        elif context_type == RAGSession.ContextType.COLLECTION:
             conditions.append(
                 {"document_id": {"$in": [str(doc_id) for doc_id in self.session.document_ids]}}
             )

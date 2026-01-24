@@ -1,8 +1,9 @@
 """
-WorkflowContext - shared state wrapper integrating with PocketFlow.
+WorkflowContext - shared state wrapper for LangGraph workflows.
 
 Provides structured access to inputs, outputs, services, and Django context
-while maintaining compatibility with PocketFlow's shared dictionary pattern.
+for workflow nodes. Used internally by LangGraph graph nodes to access
+validated inputs, register outputs, and interact with services.
 """
 
 from dataclasses import dataclass, field
@@ -14,7 +15,6 @@ if TYPE_CHECKING:
     from accounts.models import Account
     from projects.models import Project
     from workflows.types import OutputSpec
-    from workspaces.models import Workspace
 
 
 @dataclass
@@ -161,7 +161,6 @@ class WorkflowContext:
     # Django context (set by runner)
     organization: Optional["Account"] = None
     project: Optional["Project"] = None
-    workspace: Optional["Workspace"] = None
     user: Optional["User"] = None
 
     # Workflow metadata

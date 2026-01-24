@@ -19,7 +19,6 @@ from organizations.models import Organization, OrganizationUser
 from accounts.models import Account
 from file_search.types import SearchResult, SourceReference
 from projects.models import Project
-from workspaces.models import Workspace
 from .models import (
     Collection,
     Document,
@@ -466,11 +465,6 @@ def test_create_d2_document_api(client, organization, user):
         working_directory="/tmp/canvas",
         created_by=user,
     )
-    workspace = Workspace.objects.create(
-        project=project,
-        name="Canvas Workspace",
-        created_by=user,
-    )
 
     client.force_login(user)
 
@@ -479,7 +473,6 @@ def test_create_d2_document_api(client, organization, user):
         "description": "Created from canvas",
         "content": "a -> b: link",
         "project_id": project.id,
-        "workspace_id": workspace.id,
     }
 
     response = client.post(
@@ -505,11 +498,6 @@ def test_create_markdown_document_api(client, organization, user):
         working_directory="/tmp/md",
         created_by=user,
     )
-    workspace = Workspace.objects.create(
-        project=project,
-        name="Markdown Workspace",
-        created_by=user,
-    )
 
     client.force_login(user)
 
@@ -518,7 +506,6 @@ def test_create_markdown_document_api(client, organization, user):
         "description": "Markdown saved via API",
         "content": "# Title\nSome text",
         "project_id": project.id,
-        "workspace_id": workspace.id,
     }
 
     response = client.post(
@@ -543,11 +530,6 @@ def test_upload_image_document_api(client, organization, user):
         working_directory="/tmp/images",
         created_by=user,
     )
-    workspace = Workspace.objects.create(
-        project=project,
-        name="Image Workspace",
-        created_by=user,
-    )
 
     client.force_login(user)
 
@@ -568,7 +550,6 @@ def test_upload_image_document_api(client, organization, user):
             "name": "Upload Test",
             "description": "Uploaded through API",
             "project_id": project.id,
-            "workspace_id": workspace.id,
             "image_file": image_file,
         },
     )
@@ -595,23 +576,18 @@ def test_folder_creation_and_listing(client, organization, user):
         working_directory="/tmp/folders",
         created_by=user,
     )
-    workspace = Workspace.objects.create(
-        project=project,
-        name="Workspace",
-        created_by=user,
-    )
 
     client.force_login(user)
 
     response = client.post(
         "/api/documents/folders",
-        data=json.dumps({"name": "Root", "workspace_id": workspace.id}),
+        data=json.dumps({"name": "Root", "project_id": project.id}),
         content_type="application/json",
     )
     assert response.status_code == 200
     folder_id = response.json()["id"]
 
-    list_resp = client.get(f"/api/documents/folders?workspace_id={workspace.id}")
+    list_resp = client.get(f"/api/documents/folders?project_id={project.id}")
     assert list_resp.status_code == 200
     assert any(f["id"] == folder_id for f in list_resp.json())
 
@@ -624,14 +600,8 @@ def test_list_documents_filtered_by_folder(client, organization, user):
         working_directory="/tmp/filter",
         created_by=user,
     )
-    workspace = Workspace.objects.create(
-        project=project,
-        name="Workspace",
-        created_by=user,
-    )
     folder = Folder.objects.create(
         name="Folder A",
-        workspace=workspace,
         project=project,
         organization=organization,
         created_by=user,
@@ -639,7 +609,6 @@ def test_list_documents_filtered_by_folder(client, organization, user):
     doc = Markdown.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name="Doc",
         content="Body",
         created_by=user,
@@ -662,14 +631,8 @@ def test_move_document_between_folders(client, organization, user):
         working_directory="/tmp/move",
         created_by=user,
     )
-    workspace = Workspace.objects.create(
-        project=project,
-        name="Workspace",
-        created_by=user,
-    )
     folder = Folder.objects.create(
         name="Folder",
-        workspace=workspace,
         project=project,
         organization=organization,
         created_by=user,
@@ -677,7 +640,6 @@ def test_move_document_between_folders(client, organization, user):
     doc = Markdown.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         name="Doc",
         content="Body",
         created_by=user,
@@ -695,8 +657,8 @@ def test_move_document_between_folders(client, organization, user):
 
 
 @pytest.mark.django_db
-def test_list_documents_validates_workspace_belongs_to_project(client, organization, user):
-    """Workspace from another project should be rejected."""
+def test_list_documents_validates_folder_belongs_to_project(client, organization, user):
+    """Folder from another project should be rejected."""
     project_a = Project.objects.create(
         organization=organization,
         name="Project A",
@@ -709,24 +671,25 @@ def test_list_documents_validates_workspace_belongs_to_project(client, organizat
         working_directory="/tmp/b",
         created_by=user,
     )
-    workspace_b = Workspace.objects.create(
+    folder_b = Folder.objects.create(
         project=project_b,
-        name="B Workspace",
+        organization=organization,
+        name="B Folder",
         created_by=user,
     )
 
     client.force_login(user)
 
     resp = client.get(
-        f"/api/documents?project_id={project_a.id}&workspace_id={workspace_b.id}"
+        f"/api/documents?project_id={project_a.id}&folder_id={folder_b.id}"
     )
     assert resp.status_code == 400
-    assert "Workspace must belong" in resp.json()["detail"]
+    assert "Folder must belong" in resp.json()["detail"]
 
 
 @pytest.mark.django_db
-def test_create_folder_parent_must_match_workspace(client, organization, user):
-    """Creating a folder with a parent from a different workspace fails."""
+def test_create_folder_parent_must_match_project(client, organization, user):
+    """Creating a folder with a parent from a different project fails."""
     project = Project.objects.create(
         organization=organization,
         name="Folder Project",
@@ -739,13 +702,8 @@ def test_create_folder_parent_must_match_workspace(client, organization, user):
         working_directory="/tmp/folder-mismatch2",
         created_by=user,
     )
-    workspace = Workspace.objects.create(project=project, name="Workspace A", created_by=user)
-    other_workspace = Workspace.objects.create(
-        project=other_project, name="Workspace B", created_by=user
-    )
     parent = Folder.objects.create(
         name="Parent",
-        workspace=other_workspace,
         project=other_project,
         organization=organization,
         created_by=user,
@@ -754,7 +712,7 @@ def test_create_folder_parent_must_match_workspace(client, organization, user):
     client.force_login(user)
     payload = {
         "name": "Child",
-        "workspace_id": workspace.id,
+        "project_id": project.id,
         "parent_id": parent.id,
     }
     resp = client.post(
@@ -764,7 +722,7 @@ def test_create_folder_parent_must_match_workspace(client, organization, user):
     )
 
     assert resp.status_code == 400
-    assert "Parent folder must belong to the same workspace" in resp.json()["detail"]
+    assert "Parent folder must belong to the same project" in resp.json()["detail"]
 
 
 @pytest.mark.django_db

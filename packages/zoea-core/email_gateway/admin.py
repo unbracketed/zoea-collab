@@ -37,7 +37,7 @@ class EmailThreadAdmin(admin.ModelAdmin):
         'thread_id', 'conversation', 'email_count',
         'first_email_at', 'last_email_at', 'created_at', 'updated_at'
     ]
-    raw_id_fields = ['organization', 'project', 'workspace', 'initiator_user', 'attachment_folder']
+    raw_id_fields = ['organization', 'project', 'initiator_user', 'attachment_folder']
     date_hierarchy = 'last_email_at'
     inlines = [EmailMessageInline]
 
@@ -49,7 +49,7 @@ class EmailThreadAdmin(admin.ModelAdmin):
             'fields': ('initiator_email', 'initiator_user', 'recipient_address')
         }),
         ('Organization', {
-            'fields': ('organization', 'project', 'workspace')
+            'fields': ('organization', 'project')
         }),
         ('Linked Conversation', {
             'fields': ('conversation', 'attachment_folder')

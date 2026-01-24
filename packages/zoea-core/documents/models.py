@@ -51,9 +51,6 @@ class DocumentQuerySet(InheritanceQuerySetMixin, OrganizationScopedQuerySet):
 class FolderQuerySet(OrganizationScopedQuerySet):
     """Organization-scoped queryset for folders."""
 
-    def for_workspace(self, workspace):
-        return self.filter(workspace=workspace)
-
     def for_project(self, project):
         return self.filter(project=project)
 
@@ -72,12 +69,6 @@ class Folder(MPTTModel):
         on_delete=models.CASCADE,
         related_name='folders',
         help_text="Project that owns this folder"
-    )
-    workspace = models.ForeignKey(
-        'workspaces.Workspace',
-        on_delete=models.CASCADE,
-        related_name='folders',
-        help_text="Workspace that owns this folder"
     )
     parent = TreeForeignKey(
         'self',
@@ -110,9 +101,9 @@ class Folder(MPTTModel):
     class Meta:
         verbose_name = "Folder"
         verbose_name_plural = "Folders"
-        unique_together = [['workspace', 'parent', 'name']]
+        unique_together = [['project', 'parent', 'name']]
         indexes = [
-            models.Index(fields=['workspace', 'parent', 'name']),
+            models.Index(fields=['project', 'parent', 'name']),
             models.Index(fields=['is_system']),
         ]
 
@@ -122,18 +113,16 @@ class Folder(MPTTModel):
     def clean(self):
         super().clean()
         if self.parent:
-            if self.parent.workspace_id != self.workspace_id:
-                raise ValidationError("Folder must share the same workspace as its parent")
+            if self.parent.project_id != self.project_id:
+                raise ValidationError("Folder must share the same project as its parent")
 
     def save(self, *args, **kwargs):
-        # Align organization/project with workspace automatically
-        if self.workspace:
-            self.project = self.workspace.project
-            self.organization = self.workspace.project.organization
+        # Align organization with project automatically
         if self.parent:
             self.project = self.parent.project
             self.organization = self.parent.organization
-            self.workspace = self.parent.workspace
+        elif self.project:
+            self.organization = self.project.organization
         super().save(*args, **kwargs)
 
     def get_path(self):
@@ -151,7 +140,7 @@ class Collection(models.Model):
     """
     DEPRECATED: Use DocumentCollection instead.
 
-    Legacy collection of documents scoped to a project and workspace.
+    Legacy collection of documents scoped to a project.
     Kept for backward compatibility during migration.
     """
 
@@ -163,7 +152,7 @@ class Collection(models.Model):
         help_text="The organization that owns this collection"
     )
 
-    # Project and workspace relationships (temporarily nullable for migration)
+    # Project relationship
     project = models.ForeignKey(
         'projects.Project',
         on_delete=models.CASCADE,
@@ -171,14 +160,6 @@ class Collection(models.Model):
         null=True,
         blank=True,
         help_text="The project this collection belongs to"
-    )
-    workspace = models.ForeignKey(
-        'workspaces.Workspace',
-        on_delete=models.CASCADE,
-        related_name='legacy_collections',
-        null=True,
-        blank=True,
-        help_text="The workspace this collection belongs to"
     )
 
     # Required fields
@@ -211,10 +192,9 @@ class Collection(models.Model):
         verbose_name = "Collection (Legacy)"
         verbose_name_plural = "Collections (Legacy)"
         ordering = ['-created_at']
-        unique_together = [['project', 'workspace', 'name']]
+        unique_together = [['project', 'name']]
         indexes = [
             models.Index(fields=['project', '-created_at']),
-            models.Index(fields=['workspace', '-created_at']),
         ]
 
     def __str__(self):
@@ -258,9 +238,9 @@ class CollectionItemSourceChannel(models.TextChoices):
 class DocumentCollectionQuerySet(OrganizationScopedQuerySet):
     """Custom queryset with convenience filters for document collections."""
 
-    def for_workspace(self, workspace):
-        """Filter by workspace."""
-        return self.filter(workspace=workspace)
+    def for_project(self, project):
+        """Filter by project."""
+        return self.filter(project=project)
 
     def for_owner(self, owner):
         """Filter by owner (for notebooks)."""
@@ -288,7 +268,7 @@ class DocumentCollection(models.Model):
     Unified collection model for artifacts, attachments, and notebooks.
 
     Combines features from the legacy Collection model and Clipboard model:
-    - Multi-tenant scoping (organization, project, workspace)
+    - Multi-tenant scoping (organization, project)
     - Collection types: ARTIFACT, ATTACHMENT, NOTEBOOK
     - Deque-style ordering for items (sequence_head/tail)
     - Active/recent status for notebooks
@@ -298,7 +278,7 @@ class DocumentCollection(models.Model):
         # Create an artifacts collection for a conversation
         collection = DocumentCollection.objects.create(
             organization=org,
-            workspace=workspace,
+            project=project,
             collection_type=CollectionType.ARTIFACT,
             name="Conversation Artifacts",
         )
@@ -306,7 +286,7 @@ class DocumentCollection(models.Model):
         # Create a notebook for a user
         notebook = DocumentCollection.objects.create(
             organization=org,
-            workspace=workspace,
+            project=project,
             collection_type=CollectionType.NOTEBOOK,
             owner=user,
             name="My Notebook",
@@ -322,7 +302,7 @@ class DocumentCollection(models.Model):
         help_text="The organization that owns this collection"
     )
 
-    # Project and workspace relationships
+    # Project relationship
     project = models.ForeignKey(
         'projects.Project',
         on_delete=models.CASCADE,
@@ -330,14 +310,6 @@ class DocumentCollection(models.Model):
         null=True,
         blank=True,
         help_text="The project this collection belongs to"
-    )
-    workspace = models.ForeignKey(
-        'workspaces.Workspace',
-        on_delete=models.CASCADE,
-        related_name='document_collections',
-        null=True,
-        blank=True,
-        help_text="The workspace this collection belongs to"
     )
 
     # Collection type
@@ -418,15 +390,15 @@ class DocumentCollection(models.Model):
         verbose_name_plural = "Document Collections"
         ordering = ['-activated_at', '-updated_at']
         indexes = [
-            models.Index(fields=['workspace', 'collection_type']),
-            models.Index(fields=['workspace', 'owner']),
+            models.Index(fields=['project', 'collection_type']),
+            models.Index(fields=['project', 'owner']),
             models.Index(fields=['collection_type', '-created_at']),
         ]
         constraints = [
-            # Only one active notebook per user per workspace
+            # Only one active notebook per user per project
             models.UniqueConstraint(
                 condition=models.Q(is_active=True, collection_type='notebook'),
-                fields=['workspace', 'owner'],
+                fields=['project', 'owner'],
                 name='unique_active_notebook_per_user',
             )
         ]
@@ -464,12 +436,9 @@ class DocumentCollection(models.Model):
         return self.sequence_tail
 
     def save(self, *args, **kwargs):
-        # Auto-populate project/organization from workspace
-        if self.workspace:
-            if not self.project:
-                self.project = self.workspace.project
-            if not self.organization:
-                self.organization = self.workspace.project.organization
+        # Auto-populate organization from project
+        if self.project and not self.organization:
+            self.organization = self.project.organization
         super().save(*args, **kwargs)
 
 
@@ -606,24 +575,26 @@ class DocumentCollectionItem(models.Model):
 
 class VirtualCollectionNode(models.Model):
     """
-    Stores transient workspace artifacts that may later be persisted.
+    Stores transient project artifacts that may later be persisted.
 
     Virtual nodes hold temporary data (code snippets, chat excerpts, etc.)
     that can be added to collections before being saved as proper documents.
     They can be materialized into actual documents when needed.
 
     Features:
-    - Workspace-scoped for proper isolation
+    - Project-scoped for proper isolation
     - TTL support via expires_at for automatic cleanup
     - Materialization tracking to link to persisted documents
     - Flexible payload storage for any content type
     """
 
-    workspace = models.ForeignKey(
-        'workspaces.Workspace',
+    project = models.ForeignKey(
+        'projects.Project',
         on_delete=models.CASCADE,
         related_name='virtual_collection_nodes',
-        help_text="Workspace this node belongs to"
+        null=True,
+        blank=True,
+        help_text="Project this node belongs to"
     )
     created_by = models.ForeignKey(
         User,
@@ -694,7 +665,7 @@ class VirtualCollectionNode(models.Model):
         verbose_name_plural = "Virtual Collection Nodes"
         ordering = ['-updated_at']
         indexes = [
-            models.Index(fields=['workspace', 'node_type']),
+            models.Index(fields=['project', 'node_type']),
             models.Index(fields=['expires_at']),
         ]
 
@@ -721,7 +692,7 @@ class Document(models.Model):
     Base document model with multi-table inheritance.
 
     All document types inherit from this base class. Documents are scoped to
-    a project and workspace. Use select_subclasses() to efficiently query all
+    a project. Use select_subclasses() to efficiently query all
     document types in a single query:
 
         documents = Document.objects.select_subclasses()
@@ -738,7 +709,7 @@ class Document(models.Model):
         help_text="The organization that owns this document"
     )
 
-    # Project and workspace relationships (temporarily nullable for migration)
+    # Project relationship
     project = models.ForeignKey(
         'projects.Project',
         on_delete=models.CASCADE,
@@ -746,14 +717,6 @@ class Document(models.Model):
         null=True,
         blank=True,
         help_text="The project this document belongs to"
-    )
-    workspace = models.ForeignKey(
-        'workspaces.Workspace',
-        on_delete=models.CASCADE,
-        related_name='documents',
-        null=True,
-        blank=True,
-        help_text="The workspace this document belongs to"
     )
 
     # Required fields
@@ -840,7 +803,6 @@ class Document(models.Model):
         ordering = ['-created_at']
         indexes = [
             models.Index(fields=['project', '-created_at']),
-            models.Index(fields=['workspace', '-created_at']),
             models.Index(fields=['folder']),
         ]
 
@@ -885,9 +847,8 @@ class Document(models.Model):
 
     def save(self, *args, **kwargs):
         if self.folder:
-            if self.workspace and self.folder.workspace_id != self.workspace_id:
-                raise ValidationError("Document folder must belong to the same workspace")
-            self.workspace = self.folder.workspace
+            if self.project and self.folder.project_id != self.project_id:
+                raise ValidationError("Document folder must belong to the same project")
             self.project = self.folder.project
             self.organization = self.folder.organization
         super().save(*args, **kwargs)
@@ -2085,13 +2046,6 @@ class DocumentPreview(models.Model):
         blank=True,
         help_text="Project scope for this preview",
     )
-    workspace = models.ForeignKey(
-        "workspaces.Workspace",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        help_text="Workspace scope for this preview",
-    )
     preview_kind = models.CharField(
         max_length=20,
         choices=PreviewKind.choices,
@@ -2143,7 +2097,7 @@ class DocumentPreview(models.Model):
         unique_together = [["document", "preview_kind"]]
         indexes = [
             models.Index(
-                fields=["organization", "project", "workspace", "status"],
+                fields=["organization", "project", "status"],
                 name="docpreview_scope_status",
             ),
         ]

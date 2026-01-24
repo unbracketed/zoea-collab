@@ -109,13 +109,6 @@ class ToolExecutionLog(models.Model):
         null=True,
         blank=True,
     )
-    workspace = models.ForeignKey(
-        "workspaces.Workspace",
-        on_delete=models.CASCADE,
-        related_name="tool_executions",
-        null=True,
-        blank=True,
-    )
     user = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

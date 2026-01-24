@@ -19,7 +19,7 @@ class Conversation(models.Model):
     """
     A conversation thread between a user and an agent.
 
-    Each conversation belongs to an organization, project, and workspace.
+    Each conversation belongs to an organization and project.
     Conversations contain multiple messages exchanged between the user and the AI agent.
     """
 
@@ -33,17 +33,9 @@ class Conversation(models.Model):
         'projects.Project',
         on_delete=models.CASCADE,
         related_name='conversations',
-        null=True,  # Temporarily nullable for migration
+        null=True,
         blank=True,
         help_text="Project this conversation belongs to"
-    )
-    workspace = models.ForeignKey(
-        'workspaces.Workspace',
-        on_delete=models.CASCADE,
-        related_name='conversations',
-        null=True,  # Temporarily nullable for migration
-        blank=True,
-        help_text="Workspace this conversation belongs to"
     )
     created_by = models.ForeignKey(
         User,
@@ -81,7 +73,6 @@ class Conversation(models.Model):
             models.Index(fields=['-updated_at']),
             models.Index(fields=['organization', '-updated_at']),
             models.Index(fields=['project', '-updated_at']),
-            models.Index(fields=['workspace', '-updated_at']),
             models.Index(fields=['created_by', '-updated_at']),
         ]
 
@@ -122,7 +113,7 @@ class Conversation(models.Model):
 
         Creates a DocumentCollection with collection_type='artifact' if one
         doesn't exist. The collection is scoped to the conversation's
-        organization and workspace.
+        organization and project.
 
         Returns:
             DocumentCollection: The artifacts collection for this conversation.
@@ -134,7 +125,7 @@ class Conversation(models.Model):
 
         collection = DocumentCollection.objects.create(
             organization=self.organization,
-            workspace=self.workspace,
+            project=self.project,
             collection_type=CollectionType.ARTIFACT,
             name=f"Artifacts: {self.get_title()[:50]}",
             created_by=self.created_by,

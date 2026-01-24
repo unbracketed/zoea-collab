@@ -1,7 +1,7 @@
 """
 Nodes for summarize_content workflow.
 
-This workflow reads content from various sources (document, folder, clipboard)
+This workflow reads content from various sources (document, folder)
 and generates a summary using AI.
 """
 
@@ -14,13 +14,12 @@ class ReadContentNode(WorkflowNode):
     """
     Read content from the specified source.
 
-    Retrieves content based on source_type (document, folder, clipboard)
+    Retrieves content based on source_type (document, folder)
     and source_id, then stores it in the workflow state for subsequent nodes.
 
     Supported source types:
     - document: Fetches a single document by ID from documents.models.Document
     - folder: Aggregates content from all documents in a folder
-    - clipboard: Retrieves clipboard items and their content
     """
 
     def prep(self, shared):
@@ -116,90 +115,12 @@ class ReadContentNode(WorkflowNode):
             "metadata": metadata,
         }
 
-    def _fetch_clipboard_content(self, clipboard_id: str, ctx) -> dict[str, Any]:
-        """
-        Fetch content from clipboard items.
-
-        Args:
-            clipboard_id: The clipboard ID to fetch items from
-            ctx: WorkflowContext for organization scoping
-
-        Returns:
-            Dict with 'content' string and 'metadata' dict
-        """
-        from documents.models import TextDocument
-
-        clipboard = self._get_scoped_clipboard(clipboard_id, ctx)
-        items = clipboard.items.all().order_by("position")
-
-        content_parts = []
-        item_count = 0
-
-        for item in items:
-            item_count += 1
-
-            # Try to get content from the content_object
-            content_obj = item.content_object
-            if content_obj is not None:
-                if isinstance(content_obj, TextDocument):
-                    content_parts.append(
-                        f"## Item {item_count}: {content_obj.name}\n\n{content_obj.content}"
-                    )
-                elif hasattr(content_obj, "name"):
-                    content_parts.append(
-                        f"## Item {item_count}: {content_obj.name}\n\n"
-                        f"[{type(content_obj).__name__} - content not available for summarization]"
-                    )
-                else:
-                    content_parts.append(
-                        f"## Item {item_count}\n\n"
-                        f"[{type(content_obj).__name__} - content not available for summarization]"
-                    )
-            elif item.virtual_node is not None:
-                # Handle virtual clipboard nodes
-                vnode = item.virtual_node
-                if vnode.preview_text:
-                    content_parts.append(
-                        f"## Item {item_count}: {vnode.node_type}\n\n{vnode.preview_text}"
-                    )
-                elif vnode.payload:
-                    # Include payload as JSON-like content
-                    import json
-
-                    payload_str = json.dumps(vnode.payload, indent=2)
-                    content_parts.append(
-                        f"## Item {item_count}: {vnode.node_type}\n\n```json\n{payload_str}\n```"
-                    )
-                else:
-                    content_parts.append(
-                        f"## Item {item_count}: {vnode.node_type}\n\n[No content available]"
-                    )
-            else:
-                # Item has no content object or virtual node
-                content_parts.append(f"## Item {item_count}\n\n[Empty clipboard item]")
-
-        metadata = {
-            "clipboard_id": str(clipboard.id),
-            "clipboard_name": clipboard.name,
-            "item_count": item_count,
-        }
-
-        if not content_parts:
-            content_parts.append(f"[No items found in clipboard: {clipboard.name}]")
-
-        return {
-            "content": "\n\n---\n\n".join(content_parts),
-            "metadata": metadata,
-        }
-
     def _document_scope(self, ctx) -> dict[str, Any]:
         scope: dict[str, Any] = {}
         if ctx.organization:
             scope["organization_id"] = ctx.organization.id
         if ctx.project:
             scope["project_id"] = ctx.project.id
-        if ctx.workspace:
-            scope["workspace_id"] = ctx.workspace.id
         return scope
 
     def _folder_scope(self, ctx) -> dict[str, Any]:
@@ -208,17 +129,7 @@ class ReadContentNode(WorkflowNode):
             scope["organization_id"] = ctx.organization.id
         if ctx.project:
             scope["project_id"] = ctx.project.id
-        if ctx.workspace:
-            scope["workspace_id"] = ctx.workspace.id
         return scope
-
-    def _get_scoped_clipboard(self, clipboard_id: str, ctx):
-        from context_clipboards.models import Clipboard
-
-        if ctx.workspace:
-            return Clipboard.objects.get(id=clipboard_id, workspace_id=ctx.workspace.id)
-
-        return Clipboard.objects.get(id=clipboard_id)
 
     def post(self, shared, prep_res, _):
         """Fetch content based on source type and store in state."""
@@ -235,12 +146,10 @@ class ReadContentNode(WorkflowNode):
             result = self._fetch_document_content(source_id, ctx)
         elif source_type == "folder":
             result = self._fetch_folder_content(source_id, ctx)
-        elif source_type == "clipboard":
-            result = self._fetch_clipboard_content(source_id, ctx)
         else:
             raise ValueError(
                 f"Unsupported source_type: {source_type}. "
-                "Must be one of: document, folder, clipboard"
+                "Must be one of: document, folder"
             )
 
         ctx.state["content"] = result["content"]

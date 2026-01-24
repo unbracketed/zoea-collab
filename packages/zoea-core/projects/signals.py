@@ -19,7 +19,7 @@ def create_default_project(sender, instance, created, **kwargs):
     Create a default Project when a user joins an organization for the first time.
 
     This ensures every user has at least one project to work with.
-    The project is created with a demo-docs directory in the user's workspace.
+    The project is created with a demo-docs directory.
     """
     if not created:
         return

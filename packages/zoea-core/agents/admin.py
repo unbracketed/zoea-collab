@@ -100,7 +100,6 @@ class ToolExecutionLogAdmin(admin.ModelAdmin):
     readonly_fields = [
         "organization",
         "project",
-        "workspace",
         "user",
         "tool_name",
         "agent_name",
@@ -114,7 +113,6 @@ class ToolExecutionLogAdmin(admin.ModelAdmin):
     raw_id_fields = [
         "organization",
         "project",
-        "workspace",
         "user",
     ]
     date_hierarchy = "executed_at"

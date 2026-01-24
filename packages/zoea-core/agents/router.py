@@ -37,7 +37,6 @@ class AgentRouter:
         router = AgentRouter()
         context = AgentContext(
             project=project,
-            workspace=workspace,
             document=excalidraw_doc,
         )
         result = router.route(context)
@@ -88,8 +87,7 @@ class AgentRouter:
             tools=tools,
             config={
                 "project_id": context.project.id,
-                "workspace_id": context.workspace.id,
-            },
+                            },
         )
 
     def _route_document_rag(self, context: AgentContext) -> AgentRouteResult:
@@ -103,8 +101,7 @@ class AgentRouter:
             tools=tools,
             config={
                 "project_id": context.project.id,
-                "workspace_id": context.workspace.id,
-                "document_ids": context.document_ids,
+                                "document_ids": context.document_ids,
                 "folder_id": context.folder_id,
                 "collection_id": context.collection_id,
                 "rag_session_id": context.rag_session_id,
@@ -122,8 +119,7 @@ class AgentRouter:
             tools=tools,
             config={
                 "project_id": context.project.id,
-                "workspace_id": context.workspace.id,
-                "document_id": context.document.id if context.document else None,
+                                "document_id": context.document.id if context.document else None,
             },
         )
 
@@ -138,7 +134,6 @@ class AgentRouter:
             tools=tools,
             config={
                 "project_id": context.project.id,
-                "workspace_id": context.workspace.id,
-                "max_passes": 3,  # Multi-pass search
+                                "max_passes": 3,  # Multi-pass search
             },
         )

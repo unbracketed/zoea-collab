@@ -111,7 +111,6 @@ class DocumentImportService:
         *,
         organization,
         project,
-        workspace,
         created_by,
         base_folder: Folder | None = None,
         create_root_folder: bool = True,
@@ -120,7 +119,6 @@ class DocumentImportService:
     ):
         self.organization = organization
         self.project = project
-        self.workspace = workspace
         self.created_by = created_by
         self.base_folder = base_folder
         self.create_root_folder = create_root_folder
@@ -424,7 +422,8 @@ class DocumentImportService:
             return self.folder_cache[key]
 
         folder, _ = Folder.objects.get_or_create(
-            workspace=self.workspace,
+            organization=self.organization,
+            project=self.project,
             parent=parent,
             name=name,
             defaults={
@@ -523,8 +522,7 @@ class DocumentImportService:
                 document = doc_cls(
                     organization=self.organization,
                     project=self.project,
-                    workspace=self.workspace,
-                    name=doc_name,
+                                        name=doc_name,
                     content=content,
                     file_size=len(data),
                     created_by=self.created_by,
@@ -538,7 +536,6 @@ class DocumentImportService:
                 kwargs = {
                     "organization": self.organization,
                     "project": self.project,
-                    "workspace": self.workspace,
                     "name": doc_name,
                     "file_size": len(data),
                     "created_by": self.created_by,
@@ -594,8 +591,7 @@ class DocumentImportService:
         parent_folder: Folder | None,
     ) -> tuple[str | None, bool]:
         queryset = Document.objects.filter(
-            workspace=self.workspace,
-            folder=parent_folder,
+                        folder=parent_folder,
             name=doc_name,
         )
         if not queryset.exists():
@@ -614,8 +610,7 @@ class DocumentImportService:
         while True:
             candidate = f"{base_name} ({counter})"
             if not Document.objects.filter(
-                workspace=self.workspace,
-                folder=parent_folder,
+                                folder=parent_folder,
                 name=candidate,
             ).exists():
                 return candidate, False

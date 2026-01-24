@@ -41,7 +41,7 @@ class ArtifactOwner(Protocol):
     """
 
     organization: Any
-    workspace: Any
+    project: Any
     artifacts: DocumentCollection | None
     artifacts_id: int | None
 
@@ -132,7 +132,7 @@ class ArtifactService:
         with transaction.atomic():
             collection = DocumentCollection.objects.create(
                 organization=owner.organization,
-                workspace=owner.workspace,
+                project=owner.project,
                 collection_type=CollectionType.ARTIFACT,
                 name=name,
                 created_by=self.actor,

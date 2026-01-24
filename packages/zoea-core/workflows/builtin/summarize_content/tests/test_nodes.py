@@ -90,6 +90,7 @@ class TestReadContentNode:
         with patch("documents.models.Document.objects") as mock_objects:
             mock_qs = MagicMock()
             mock_objects.select_subclasses.return_value = mock_qs
+            mock_qs.filter.return_value = mock_qs  # filter() returns queryset
             mock_qs.get.return_value = doc
 
             result = node._fetch_document_content("999", mock_context)
@@ -105,19 +106,13 @@ class TestReadContentNode:
         from accounts.models import Account
         from documents.models import Folder, Markdown
         from projects.models import Project
-        from workspaces.models import Workspace
 
-        # Create org, project, workspace, folder hierarchy
+        # Create org, project, folder hierarchy
         org = Account.objects.create(name="Test Org")
         project = Project.objects.create(organization=org, name="Test Project")
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Test Workspace",
-        )
         folder = Folder.objects.create(
             organization=org,
             project=project,
-            workspace=workspace,
             name="Test Folder",
         )
 
@@ -152,18 +147,12 @@ class TestReadContentNode:
         from accounts.models import Account
         from documents.models import Folder
         from projects.models import Project
-        from workspaces.models import Workspace
 
         org = Account.objects.create(name="Test Org")
         project = Project.objects.create(organization=org, name="Test Project")
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Test Workspace",
-        )
         folder = Folder.objects.create(
             organization=org,
             project=project,
-            workspace=workspace,
             name="Empty Folder",
         )
 
@@ -172,180 +161,6 @@ class TestReadContentNode:
         assert "No documents found in folder" in result["content"]
         assert result["metadata"]["folder_name"] == "Empty Folder"
         assert result["metadata"]["document_count"] == 0
-
-    @pytest.mark.django_db
-    def test_fetch_clipboard_content_with_document_items(self, node, mock_context, db):
-        """Test fetching content from a clipboard with document items."""
-        from django.contrib.auth import get_user_model
-        from django.contrib.contenttypes.models import ContentType
-
-        from accounts.models import Account
-        from context_clipboards.models import Clipboard, ClipboardItem
-        from documents.models import Markdown
-        from projects.models import Project
-        from workspaces.models import Workspace
-
-        user_model = get_user_model()
-
-        # Create test data
-        org = Account.objects.create(name="Test Org")
-        project = Project.objects.create(organization=org, name="Test Project")
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Test Workspace",
-        )
-        user = user_model.objects.create_user(username="testuser")
-
-        # Create clipboard
-        clipboard = Clipboard.objects.create(
-            workspace=workspace,
-            owner=user,
-            name="Test Clipboard",
-        )
-
-        # Create a document
-        doc = Markdown.objects.create(
-            organization=org,
-            name="Clipboard Doc",
-            content="Clipboard document content",
-        )
-
-        # Add document to clipboard
-        content_type = ContentType.objects.get_for_model(Markdown)
-        ClipboardItem.objects.create(
-            clipboard=clipboard,
-            position=0,
-            content_type=content_type,
-            object_id=str(doc.id),
-        )
-
-        result = node._fetch_clipboard_content(str(clipboard.id), mock_context)
-
-        assert "Clipboard Doc" in result["content"]
-        assert "Clipboard document content" in result["content"]
-        assert result["metadata"]["clipboard_name"] == "Test Clipboard"
-        assert result["metadata"]["item_count"] == 1
-
-    @pytest.mark.django_db
-    def test_fetch_clipboard_content_with_virtual_node(self, node, mock_context, db):
-        """Test fetching content from a clipboard with virtual node items."""
-        from django.contrib.auth import get_user_model
-
-        from accounts.models import Account
-        from context_clipboards.models import Clipboard, ClipboardItem, VirtualClipboardNode
-        from projects.models import Project
-        from workspaces.models import Workspace
-
-        user_model = get_user_model()
-
-        org = Account.objects.create(name="Test Org")
-        project = Project.objects.create(organization=org, name="Test Project")
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Test Workspace",
-        )
-        user = user_model.objects.create_user(username="testuser2")
-
-        clipboard = Clipboard.objects.create(
-            workspace=workspace,
-            owner=user,
-            name="Virtual Clipboard",
-        )
-
-        # Create virtual node with preview text
-        vnode = VirtualClipboardNode.objects.create(
-            workspace=workspace,
-            node_type="chat_message",
-            preview_text="This is a preview of the chat message",
-        )
-
-        ClipboardItem.objects.create(
-            clipboard=clipboard,
-            position=0,
-            virtual_node=vnode,
-        )
-
-        result = node._fetch_clipboard_content(str(clipboard.id), mock_context)
-
-        assert "chat_message" in result["content"]
-        assert "preview of the chat message" in result["content"]
-        assert result["metadata"]["item_count"] == 1
-
-    @pytest.mark.django_db
-    def test_fetch_clipboard_content_with_payload(self, node, mock_context, db):
-        """Test fetching content from clipboard with virtual node containing payload."""
-        from django.contrib.auth import get_user_model
-
-        from accounts.models import Account
-        from context_clipboards.models import Clipboard, ClipboardItem, VirtualClipboardNode
-        from projects.models import Project
-        from workspaces.models import Workspace
-
-        user_model = get_user_model()
-
-        org = Account.objects.create(name="Test Org")
-        project = Project.objects.create(organization=org, name="Test Project")
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Test Workspace",
-        )
-        user = user_model.objects.create_user(username="testuser3")
-
-        clipboard = Clipboard.objects.create(
-            workspace=workspace,
-            owner=user,
-            name="Payload Clipboard",
-        )
-
-        # Create virtual node with payload (no preview_text)
-        vnode = VirtualClipboardNode.objects.create(
-            workspace=workspace,
-            node_type="code_snippet",
-            payload={"language": "python", "code": "print('hello')"},
-        )
-
-        ClipboardItem.objects.create(
-            clipboard=clipboard,
-            position=0,
-            virtual_node=vnode,
-        )
-
-        result = node._fetch_clipboard_content(str(clipboard.id), mock_context)
-
-        assert "code_snippet" in result["content"]
-        assert "python" in result["content"]
-        assert "print" in result["content"]
-
-    @pytest.mark.django_db
-    def test_fetch_clipboard_content_empty(self, node, mock_context, db):
-        """Test fetching content from an empty clipboard."""
-        from django.contrib.auth import get_user_model
-
-        from accounts.models import Account
-        from context_clipboards.models import Clipboard
-        from projects.models import Project
-        from workspaces.models import Workspace
-
-        user_model = get_user_model()
-
-        org = Account.objects.create(name="Test Org")
-        project = Project.objects.create(organization=org, name="Test Project")
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Test Workspace",
-        )
-        user = user_model.objects.create_user(username="testuser4")
-
-        clipboard = Clipboard.objects.create(
-            workspace=workspace,
-            owner=user,
-            name="Empty Clipboard",
-        )
-
-        result = node._fetch_clipboard_content(str(clipboard.id), mock_context)
-
-        assert "No items found in clipboard" in result["content"]
-        assert result["metadata"]["item_count"] == 0
 
     def test_post_invalid_source_type(self, node, shared_dict, mock_context):
         """Test that post() raises ValueError for invalid source_type."""
@@ -565,18 +380,12 @@ class TestReadContentNodeIntegration:
         from accounts.models import Account
         from documents.models import Folder, Markdown
         from projects.models import Project
-        from workspaces.models import Workspace
 
         org = Account.objects.create(name="Folder Org")
         project = Project.objects.create(organization=org, name="Folder Project")
-        workspace = Workspace.objects.create(
-            project=project,
-            name="Folder Workspace",
-        )
         folder = Folder.objects.create(
             organization=org,
             project=project,
-            workspace=workspace,
             name="Integration Folder",
         )
 

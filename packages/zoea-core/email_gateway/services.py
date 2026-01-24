@@ -14,7 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 from organizations.models import OrganizationUser
 
-from accounts.utils import get_user_organization, get_user_default_project, get_project_default_workspace
+from accounts.utils import get_user_organization, get_user_default_project
 from chat.models import Conversation, Message
 from documents.models import (
     Folder,
@@ -37,7 +37,7 @@ class EmailProcessingError(Exception):
 
 
 class InvalidRecipientError(EmailProcessingError):
-    """Exception raised when recipient email doesn't match any project/workspace."""
+    """Exception raised when recipient email doesn't match any project."""
     pass
 
 
@@ -46,26 +46,26 @@ class UnauthorizedSenderError(EmailProcessingError):
     pass
 
 
-def validate_inbound_email(sender_email: str, recipient_email: str) -> Tuple[User, object, object, object]:
+def validate_inbound_email(sender_email: str, recipient_email: str) -> Tuple[User, object, object]:
     """
     Validate inbound email sender and recipient.
 
     Validates that:
-    1. The recipient email resolves to a known project/workspace
+    1. The recipient email resolves to a known project
     2. The sender email belongs to a user in that organization
 
     Args:
         sender_email: Email address of the sender
-        recipient_email: Email address of the recipient (should be a project/workspace email)
+        recipient_email: Email address of the recipient (should be a project email)
 
     Returns:
-        Tuple of (User, Organization, Project, Workspace or None)
+        Tuple of (User, Organization, Project)
 
     Raises:
-        InvalidRecipientError: If recipient doesn't match any project/workspace
+        InvalidRecipientError: If recipient doesn't match any project
         UnauthorizedSenderError: If sender is not a member of the organization
     """
-    # 1. Resolve recipient to project/workspace
+    # 1. Resolve recipient to project
     resolved = resolve_email_recipient(recipient_email)
 
     if not resolved.project:
@@ -74,13 +74,11 @@ def validate_inbound_email(sender_email: str, recipient_email: str) -> Tuple[Use
 
     organization = resolved.organization
     project = resolved.project
-    workspace = resolved.workspace
 
     logger.info(
         f"Resolved recipient {recipient_email} to "
         f"org={organization.slug}, project={project.slug}"
-        + (f", workspace={workspace.slug}" if workspace else "")
-        + f" via {resolved.resolved_via}"
+        f" via {resolved.resolved_via}"
     )
 
     # 2. Validate sender is a member of the organization
@@ -106,7 +104,7 @@ def validate_inbound_email(sender_email: str, recipient_email: str) -> Tuple[Use
 
     logger.info(f"Validated sender {sender_email} as member of {organization.name}")
 
-    return user, organization, project, workspace
+    return user, organization, project
 
 
 class EmailProcessingService:
@@ -147,8 +145,8 @@ class EmailProcessingService:
 
         try:
             with transaction.atomic():
-                # 1. Validate sender and recipient, get resolved project/workspace
-                user, organization, project, workspace = validate_inbound_email(
+                # 1. Validate sender and recipient, get resolved project
+                user, organization, project = validate_inbound_email(
                     sender_email=email_msg.sender,
                     recipient_email=email_msg.recipient
                 )
@@ -160,11 +158,10 @@ class EmailProcessingService:
                 email_msg.stored_attachments.update(organization=organization)
 
                 # 2. Resolve thread (find or create)
-                # Pass resolved project/workspace to avoid re-resolving
+                # Pass resolved project to avoid re-resolving
                 email_thread = self._resolve_thread(
                     email_msg, organization, user,
                     resolved_project=project,
-                    resolved_workspace=workspace
                 )
 
                 # 3. Create chat message
@@ -246,7 +243,6 @@ class EmailProcessingService:
         organization,
         user: Optional[User],
         resolved_project=None,
-        resolved_workspace=None
     ) -> EmailThread:
         """
         Resolve email thread using RFC 2822 threading rules.
@@ -261,7 +257,6 @@ class EmailProcessingService:
             organization: The organization for this thread
             user: The sender user (may be None)
             resolved_project: Pre-resolved project from recipient validation
-            resolved_workspace: Pre-resolved workspace from recipient validation
 
         Returns:
             EmailThread instance (existing or newly created)
@@ -288,7 +283,6 @@ class EmailProcessingService:
         return self._create_new_thread(
             email_msg, organization, user,
             resolved_project=resolved_project,
-            resolved_workspace=resolved_workspace
         )
 
     def _find_thread_by_message_id(self, message_id: str) -> Optional[EmailThread]:
@@ -318,7 +312,6 @@ class EmailProcessingService:
         organization,
         user: Optional[User],
         resolved_project=None,
-        resolved_workspace=None
     ) -> EmailThread:
         """
         Create a new email thread and associated conversation.
@@ -328,37 +321,31 @@ class EmailProcessingService:
             organization: Organization for the thread
             user: Initiating user (may be None)
             resolved_project: Pre-resolved project from recipient validation
-            resolved_workspace: Pre-resolved workspace from recipient validation
 
         Returns:
             Newly created EmailThread
         """
-        # Use pre-resolved project/workspace if provided
+        # Use pre-resolved project if provided
         if resolved_project:
             project = resolved_project
-            workspace = resolved_workspace or get_project_default_workspace(project)
         else:
             # Fall back to resolving from recipient email (for backwards compatibility)
             resolved = resolve_email_recipient(email_msg.recipient)
             if resolved.project:
                 project = resolved.project
-                workspace = resolved.workspace
                 logger.info(
                     f"Resolved recipient {email_msg.recipient} to "
                     f"project={project.slug} via {resolved.resolved_via}"
-                    + (f", workspace={workspace.slug}" if workspace else "")
                 )
             elif user:
-                # Fall back to user's default project/workspace
+                # Fall back to user's default project
                 project = get_user_default_project(user)
-                workspace = get_project_default_workspace(project) if project else None
                 logger.info(
                     f"Could not resolve recipient {email_msg.recipient}, "
                     f"using default project for user {user.email}"
                 )
             else:
                 project = None
-                workspace = None
                 logger.warning(
                     f"Could not resolve recipient {email_msg.recipient} "
                     "and no user to get defaults from"
@@ -388,7 +375,6 @@ class EmailProcessingService:
         conversation = Conversation.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             created_by=conversation_user,
             agent_name='EmailGateway',
             title=f"Email: {email_msg.subject[:100]}" if email_msg.subject else "Email Thread",
@@ -398,7 +384,6 @@ class EmailProcessingService:
         email_thread = EmailThread.objects.create(
             organization=organization,
             project=project,
-            workspace=workspace,
             conversation=conversation,
             thread_id=email_msg.message_id,  # First message ID becomes thread ID
             subject=email_msg.subject,
@@ -425,20 +410,19 @@ class EmailProcessingService:
         if email_thread.attachment_folder:
             return email_thread.attachment_folder
 
-        # Must have workspace/project to create folder
-        if not email_thread.workspace or not email_thread.project:
-            logger.warning("Email thread missing workspace/project; skipping attachment folder creation")
+        # Must have project to create folder
+        if not email_thread.project:
+            logger.warning("Email thread missing project; skipping attachment folder creation")
             return None
 
         folder_name = f"Email Thread {email_thread.id}"
 
         folder, _ = Folder.objects.get_or_create(
-            workspace=email_thread.workspace,
+            project=email_thread.project,
             parent=None,
             name=folder_name,
             defaults={
                 "description": f"Attachments for email thread {email_thread.thread_id}",
-                "project": email_thread.project,
                 "organization": email_thread.organization,
                 "is_system": True,
                 "created_by": conversation_user,
@@ -479,7 +463,6 @@ class EmailProcessingService:
             file_doc = FileDocument(
                 organization=email_thread.organization,
                 project=email_thread.project,
-                workspace=email_thread.workspace,
                 name=attachment.filename,
                 description="Email attachment",
                 original_filename=attachment.filename,

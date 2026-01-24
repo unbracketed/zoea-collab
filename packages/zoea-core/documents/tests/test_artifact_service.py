@@ -50,35 +50,22 @@ def project(db, organization, user):
 
 
 @pytest.fixture
-def workspace(db, project, user):
-    """Create a test workspace."""
-    from workspaces.models import Workspace
-    return Workspace.objects.create(
-        project=project,
-        name='Test Workspace',
-        created_by=user,
-    )
-
-
-@pytest.fixture
-def conversation(db, organization, project, workspace, user):
+def conversation(db, organization, project, user):
     """Create a test conversation."""
     return Conversation.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         created_by=user,
         title='Test Conversation',
     )
 
 
 @pytest.fixture
-def workflow_run(db, organization, project, workspace, user):
+def workflow_run(db, organization, project, user):
     """Create a test workflow run."""
     return ExecutionRun.objects.create(
         organization=organization,
         project=project,
-        workspace=workspace,
         created_by=user,
         workflow_slug='test-workflow',
     )
@@ -104,20 +91,20 @@ class TestArtifactService:
         assert collection is not None
         assert collection.collection_type == CollectionType.ARTIFACT
         assert collection.organization == conversation.organization
-        assert collection.workspace == conversation.workspace
+        assert collection.project == conversation.project
 
         # Verify conversation was updated
         conversation.refresh_from_db()
         assert conversation.artifacts_id == collection.id
 
     def test_get_or_create_artifacts_returns_existing_collection(
-        self, artifact_service, conversation, organization, workspace, user
+        self, artifact_service, conversation, organization, project, user
     ):
         """Test that get_or_create_artifacts returns existing collection."""
         # Pre-create a collection
         existing = DocumentCollection.objects.create(
             organization=organization,
-            workspace=workspace,
+            project=project,
             collection_type=CollectionType.ARTIFACT,
             name='Existing',
             created_by=user,
@@ -154,7 +141,7 @@ class TestArtifactService:
         assert workflow_run.artifacts_id == collection.id
 
     def test_add_artifact_with_content_object(
-        self, artifact_service, conversation, organization, workspace, user
+        self, artifact_service, conversation, organization, project, user
     ):
         """Test adding an artifact with a content object reference."""
         collection = artifact_service.get_or_create_artifacts(conversation)
@@ -162,7 +149,7 @@ class TestArtifactService:
         # Create a document to reference
         doc = Document.objects.create(
             organization=organization,
-            workspace=workspace,
+            project=project,
             created_by=user,
             name='Test Doc',
         )
@@ -195,12 +182,12 @@ class TestArtifactService:
         assert result.item.source_metadata['language'] == 'python'
 
     def test_add_artifact_to_non_artifact_collection_fails(
-        self, artifact_service, organization, workspace, user
+        self, artifact_service, organization, project, user
     ):
         """Test that adding to non-artifact collection raises error."""
         notebook = DocumentCollection.objects.create(
             organization=organization,
-            workspace=workspace,
+            project=project,
             collection_type=CollectionType.NOTEBOOK,
             name='Test Notebook',
             owner=user,

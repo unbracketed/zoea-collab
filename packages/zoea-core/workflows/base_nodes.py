@@ -2,15 +2,41 @@
 Base node classes with enhanced context access for workflow nodes.
 
 Provides convenience methods for accessing WorkflowContext within
-PocketFlow node lifecycle methods.
+workflow node lifecycle methods. Works with both LangGraph state
+and legacy PocketFlow shared dict patterns.
 """
 
 import asyncio
 from typing import Any, Dict, Optional
 
-from pocketflow import Node
-
 from .context import WorkflowContext
+
+
+class Node:
+    """
+    Minimal base node class for workflow execution.
+
+    This is a standalone implementation that doesn't require PocketFlow.
+    Nodes implement prep() -> run_action() -> post() lifecycle.
+    """
+
+    def prep(self, shared: Dict[str, Any]) -> Any:
+        """Prepare data for execution. Override in subclass."""
+        return None
+
+    def run_action(self, prep_res: Any) -> Any:
+        """Execute the node logic. Override in subclass."""
+        return None
+
+    def post(self, shared: Dict[str, Any], prep_res: Any, run_res: Any) -> str:
+        """Post-process and return next action. Override in subclass."""
+        return "default"
+
+    def run(self, shared: Dict[str, Any]) -> str:
+        """Run the full node lifecycle: prep -> run_action -> post."""
+        prep_res = self.prep(shared)
+        run_res = self.run_action(prep_res)
+        return self.post(shared, prep_res, run_res)
 
 
 class WorkflowNode(Node):

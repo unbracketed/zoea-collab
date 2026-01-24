@@ -10,7 +10,6 @@ from ninja.errors import HttpError
 
 from accounts.utils import aget_user_organization
 from projects.models import Project
-from workspaces.models import Workspace
 
 from .agent_service import DocumentRAGAgentService
 from .models import RAGSession, RAGSessionMessage
@@ -53,14 +52,11 @@ async def create_rag_session(request, payload: CreateRAGSessionRequest):
     if not organization:
         raise HttpError(403, "User is not associated with any organization")
 
-    # Get project and workspace
+    # Get project
     try:
         project = await Project.objects.aget(id=payload.project_id, organization=organization)
-        workspace = await Workspace.objects.aget(id=payload.workspace_id, project=project)
     except Project.DoesNotExist:
         raise HttpError(404, "Project not found")
-    except Workspace.DoesNotExist:
-        raise HttpError(404, "Workspace not found")
 
     manager = RAGSessionManager()
 
@@ -69,7 +65,7 @@ async def create_rag_session(request, payload: CreateRAGSessionRequest):
         existing = await manager.find_active_session(
             context_type=payload.context_type,
             context_id=payload.context_id,
-            workspace=workspace,
+            project=project,
         )
         if existing:
             return RAGSessionResponse(
@@ -88,7 +84,6 @@ async def create_rag_session(request, payload: CreateRAGSessionRequest):
             context_type=payload.context_type,
             context_id=payload.context_id,
             project=project,
-            workspace=workspace,
         )
     except ValueError as e:
         raise HttpError(400, str(e))

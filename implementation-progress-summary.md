@@ -1,6 +1,6 @@
 # Zoea Collab Refactor - Implementation Progress
 
-**Date:** 2026-01-22
+**Date:** 2026-01-23 (Updated)
 **Reference:** `codex-refactor-plan.md`
 
 ## Overview
@@ -33,7 +33,7 @@ The refactor aims to unify Zoea around:
 
 ---
 
-## Phase 2: LangGraph Runtime + Execution Path 🟡 In Progress
+## Phase 2: LangGraph Runtime + Execution Path ✅ Complete
 
 | Item | Status | Location |
 |------|--------|----------|
@@ -44,8 +44,8 @@ The refactor aims to unify Zoea around:
 | `WorkflowRegistry` with `graph_builder` | ✅ Done | `workflows/registry.py` |
 | `WorkflowRunner` LangGraph path | ✅ Done | `workflows/runner.py:128-139` |
 | Legacy PocketFlow fallback | ✅ Done | `workflows/runner.py:141-169` |
-| Add `langgraph` dependency | 🔲 TODO | `pyproject.toml` |
-| First LangGraph workflow | 🔲 TODO | `workflows/builtin/summarize_content/graph.py` |
+| Add `langgraph` dependency | ✅ Done | `pyproject.toml:39-40` |
+| First LangGraph workflow | ✅ Done | `workflows/builtin/project_activity_summary/graph.py` |
 | EventTrigger → ExecutionRun routing | 🔲 TODO | `events/dispatcher.py` |
 
 ### Key Changes
@@ -127,6 +127,12 @@ packages/zoea-core/langgraph_runtime/state.py
 packages/zoea-core/langgraph_runtime/nodes.py
 packages/zoea-core/langgraph_runtime/graphs.py
 packages/zoea-core/langgraph_runtime/runtime.py
+
+packages/zoea-core/workflows/builtin/project_activity_summary/__init__.py
+packages/zoea-core/workflows/builtin/project_activity_summary/flow-config.yaml
+packages/zoea-core/workflows/builtin/project_activity_summary/graph.py
+packages/zoea-core/workflows/builtin/project_activity_summary/nodes.py
+packages/zoea-core/workflows/builtin/project_activity_summary/tests.py
 ```
 
 ### Modified Files
@@ -151,19 +157,20 @@ packages/zoea-core/workflows/models.py      - WorkflowRun removed (use Execution
 
 ## Next Steps (Immediate)
 
-1. **Add LangGraph dependency:**
-   ```bash
-   cd packages/zoea-core && uv add langgraph langgraph-checkpoint-postgres
-   ```
-
-2. **Create first LangGraph workflow:**
-   - `workflows/builtin/summarize_content/graph.py` with `build_graph()`
-
-3. **Update event dispatcher:**
+1. **Update event dispatcher:**
    - `events/dispatcher.py` to create ExecutionRun and route to LangGraph
 
-4. **Test full flow:**
-   - Trigger → ExecutionRun → LangGraph → outputs
+2. **Test full trigger → execution flow:**
+   - EventTrigger → ExecutionRun → LangGraph → outputs
+
+3. **Add scheduled event support:**
+   - Create `ScheduledEvent` model
+   - Integrate with Django-Q2 scheduler
+   - Wire to `project_activity_summary` workflow
+
+4. **Begin Phase 3: AgentRuntime + Docker:**
+   - Define AgentRuntime interface
+   - Implement Docker executor with /workspace mount
 
 ---
 
@@ -183,7 +190,7 @@ Sources/Adapters → TriggerEnvelope → TriggerRouter → ExecutionRun → Lang
                                                     Channel + ChannelMessage
 ```
 
-### LangGraph Node Layout
+### LangGraph Node Layout (Default Graph)
 ```
 ingest_envelope → route_trigger → build_inputs → select_agent_profile
                                                         ↓
@@ -193,3 +200,15 @@ ingest_envelope → route_trigger → build_inputs → select_agent_profile
                                                         ↓
                                               collect_outputs → persist_outputs → finalize_run
 ```
+
+### Project Activity Summary Workflow
+```
+gather_activity → summarize_activity → format_output → END
+```
+
+This is the first LangGraph-native workflow, demonstrating:
+- Query across ExecutionRun, ChannelMessage, Document models
+- LLM summarization via AIService
+- Output formatting with markdown/slack variants
+- ExecutionOutput generation for downstream processing
+- Full test coverage (9 tests)

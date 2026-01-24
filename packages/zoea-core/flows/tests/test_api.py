@@ -32,7 +32,6 @@ from flows.schemas import (
 from projects.models import Project
 from workflows.registry import WorkflowRegistry
 from workflows.types import InputSpec, WorkflowSpec
-from workspaces.models import Workspace
 
 User = get_user_model()
 
@@ -424,17 +423,6 @@ def test_project(db, test_organization, test_user):
 
 
 @pytest.fixture
-def test_workspace(db, test_project, test_user):
-    """Create a test workspace in the test project."""
-    workspace = Workspace.objects.create(
-        project=test_project,
-        name="Test Workspace",
-        created_by=test_user,
-    )
-    return workspace
-
-
-@pytest.fixture
 def authenticated_client(api_client, test_user):
     """Create an authenticated Django test client."""
     api_client.force_login(test_user)
@@ -486,7 +474,6 @@ class TestExecutionRunEndpoint:
         reset_registry,
         test_organization,
         test_project,
-        test_workspace,
     ):
         """Test that 404 is returned for non-existent workflow."""
         response = authenticated_client.post(
@@ -505,7 +492,6 @@ class TestExecutionRunEndpoint:
         temp_workflow_dir,
         test_organization,
         test_project,
-        test_workspace,
     ):
         """Test that input validation errors return 400."""
         registry = WorkflowRegistry.get_instance()
@@ -527,9 +513,9 @@ class TestExecutionRunEndpoint:
         assert data["validation_errors"][0]["field"] == "test_input"
 
     # NOTE: test_run_workflow_no_project removed because the application's
-    # signal handlers (projects/signals.py, workspaces/signals.py) automatically
-    # create a default project and workspace when an OrganizationUser is created.
-    # This ensures users always have a project/workspace context available.
+    # signal handlers (projects/signals.py) automatically create a default
+    # project when an OrganizationUser is created.
+    # This ensures users always have a project context available.
 
     @patch("flows.api.WorkflowRunner")
     def test_run_workflow_success(
@@ -541,7 +527,6 @@ class TestExecutionRunEndpoint:
         temp_workflow_dir,
         test_organization,
         test_project,
-        test_workspace,
     ):
         """Test successful workflow execution."""
         registry = WorkflowRegistry.get_instance()
@@ -590,7 +575,6 @@ class TestExecutionRunEndpoint:
         temp_workflow_dir,
         test_organization,
         test_project,
-        test_workspace,
     ):
         """Test workflow execution with explicit project_id."""
         registry = WorkflowRegistry.get_instance()
@@ -619,44 +603,6 @@ class TestExecutionRunEndpoint:
         assert response.status_code == 200
 
     @patch("flows.api.WorkflowRunner")
-    def test_run_workflow_with_workspace_id(
-        self,
-        mock_runner_class,
-        authenticated_client,
-        db,
-        reset_registry,
-        temp_workflow_dir,
-        test_organization,
-        test_project,
-        test_workspace,
-    ):
-        """Test workflow execution with explicit workspace_id."""
-        registry = WorkflowRegistry.get_instance()
-        registry.discover_builtins(temp_workflow_dir)
-
-        mock_runner = MagicMock()
-        mock_runner.run = AsyncMock(
-            return_value={
-                "run_id": "def11111",
-                "workflow": "test_workflow",
-                "outputs": {},
-                "state": {},
-            }
-        )
-        mock_runner_class.return_value = mock_runner
-
-        response = authenticated_client.post(
-            "/api/flows/workflows/test_workflow/run",
-            data=json.dumps({
-                "inputs": {"test_input": "test value"},
-                "workspace_id": test_workspace.id,
-            }),
-            content_type="application/json",
-        )
-
-        assert response.status_code == 200
-
-    @patch("flows.api.WorkflowRunner")
     def test_run_workflow_execution_error(
         self,
         mock_runner_class,
@@ -666,7 +612,6 @@ class TestExecutionRunEndpoint:
         temp_workflow_dir,
         test_organization,
         test_project,
-        test_workspace,
     ):
         """Test workflow execution error handling."""
         from workflows.exceptions import WorkflowError
@@ -699,7 +644,6 @@ class TestExecutionRunEndpoint:
         temp_workflow_dir,
         test_organization,
         test_project,
-        test_workspace,
     ):
         """Test error when project_id doesn't exist or belong to user's org."""
         registry = WorkflowRegistry.get_instance()
@@ -710,31 +654,6 @@ class TestExecutionRunEndpoint:
             data=json.dumps({
                 "inputs": {"test_input": "test value"},
                 "project_id": 99999,  # Non-existent project
-            }),
-            content_type="application/json",
-        )
-
-        assert response.status_code == 400
-
-    def test_run_workflow_invalid_workspace_id(
-        self,
-        authenticated_client,
-        db,
-        reset_registry,
-        temp_workflow_dir,
-        test_organization,
-        test_project,
-        test_workspace,
-    ):
-        """Test error when workspace_id doesn't exist or belong to project."""
-        registry = WorkflowRegistry.get_instance()
-        registry.discover_builtins(temp_workflow_dir)
-
-        response = authenticated_client.post(
-            "/api/flows/workflows/test_workflow/run",
-            data=json.dumps({
-                "inputs": {"test_input": "test value"},
-                "workspace_id": 99999,  # Non-existent workspace
             }),
             content_type="application/json",
         )
@@ -821,19 +740,16 @@ class TestExecutionRunSchemas:
 
         assert request.inputs == {"key": "value"}
         assert request.project_id is None
-        assert request.workspace_id is None
 
     def test_workflow_run_request_full(self):
         """Test ExecutionRunRequest with all fields."""
         request = ExecutionRunRequest(
             inputs={"key": "value"},
             project_id=1,
-            workspace_id=2,
         )
 
         assert request.inputs == {"key": "value"}
         assert request.project_id == 1
-        assert request.workspace_id == 2
 
     def test_workflow_run_response_serialization(self):
         """Test ExecutionRunResponse serialization."""
