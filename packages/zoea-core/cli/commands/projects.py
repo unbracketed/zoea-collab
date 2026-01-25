@@ -161,6 +161,11 @@ def show_project(
 
             project = projects.first()
 
+        # Get file search backend info
+        from django.conf import settings
+
+        file_search_backend = getattr(settings, "FILE_SEARCH_BACKEND", "chromadb")
+
         def build_json(p):
             return {
                 "id": p.id,
@@ -169,15 +174,28 @@ def show_project(
                 "description": p.description,
                 "working_directory": p.working_directory,
                 "worktree_directory": p.worktree_directory,
-                "gemini_store_id": p.gemini_store_id,
-                "gemini_store_name": p.gemini_store_name,
-                "gemini_synced_at": p.gemini_synced_at.isoformat() if p.gemini_synced_at else None,
+                "file_search": {
+                    "backend": file_search_backend,
+                    "store_id": p.gemini_store_id,
+                    "store_name": p.gemini_store_name,
+                    "last_synced": p.gemini_synced_at.isoformat() if p.gemini_synced_at else None,
+                },
                 "created_at": p.created_at.isoformat() if p.created_at else None,
                 "updated_at": p.updated_at.isoformat() if p.updated_at else None,
                 "created_by": p.created_by.username if p.created_by else None,
             }
 
         def build_panel(p):
+            # Build file search status line
+            if file_search_backend == "gemini" and p.gemini_store_id:
+                store_status = f"Gemini Store: {p.gemini_store_name or p.gemini_store_id}"
+            elif file_search_backend == "chromadb":
+                store_status = f"ChromaDB collection: project_{p.id}"
+            else:
+                store_status = "Not configured"
+
+            sync_status = format_timestamp(p.gemini_synced_at) if p.gemini_synced_at else "Never"
+
             details = f"""
 [bold cyan]Name:[/] {p.name}
 [bold yellow]Organization:[/] {p.organization.name}
@@ -187,10 +205,10 @@ def show_project(
   Working Directory: {p.working_directory or 'N/A'}
   Worktree Directory: {p.worktree_directory or 'N/A'}
 
-[bold blue]Gemini Integration:[/]
-  Store ID: {p.gemini_store_id or 'N/A'}
-  Store Name: {p.gemini_store_name or 'N/A'}
-  Last Synced: {format_timestamp(p.gemini_synced_at) if p.gemini_synced_at else 'Never'}
+[bold blue]File Search:[/]
+  Backend: {file_search_backend}
+  Store: {store_status}
+  Last Synced: {sync_status}
 
 [bold white]Metadata:[/]
   Created: {format_timestamp(p.created_at)}

@@ -229,6 +229,10 @@ def show_document(
             }
 
         def build_json(d):
+            # Check for sync errors
+            sync_error = getattr(d, "gemini_sync_error", None)
+            sync_attempts = getattr(d, "gemini_sync_attempts", 0)
+
             data = {
                 "id": d.id,
                 "name": d.name,
@@ -238,8 +242,13 @@ def show_document(
                 "project": d.project.name if d.project else None,
                 "folder": d.folder.get_path() if d.folder else None,
                 "file_size": d.file_size,
-                "gemini_file_id": d.gemini_file_id,
-                "gemini_synced_at": d.gemini_synced_at.isoformat() if d.gemini_synced_at else None,
+                "file_search": {
+                    "indexed": d.gemini_synced_at is not None,
+                    "last_synced": d.gemini_synced_at.isoformat() if d.gemini_synced_at else None,
+                    "file_id": d.gemini_file_id,
+                    "error": sync_error,
+                    "attempts": sync_attempts,
+                },
                 "created_at": d.created_at.isoformat() if d.created_at else None,
                 "updated_at": d.updated_at.isoformat() if d.updated_at else None,
                 "created_by": d.created_by.username if d.created_by else None,
@@ -257,6 +266,15 @@ def show_document(
                 if type_lines:
                     type_info = "\n[bold white]Type Details:[/]\n" + "\n".join(type_lines)
 
+            # Build file search status
+            sync_error = getattr(d, "gemini_sync_error", None)
+            if d.gemini_synced_at:
+                index_status = f"[green]Indexed[/] ({format_timestamp(d.gemini_synced_at)})"
+            elif sync_error:
+                index_status = f"[red]Error:[/] {sync_error[:50]}..."
+            else:
+                index_status = "[yellow]Pending[/]"
+
             details = f"""
 [bold cyan]Name:[/] {d.name}
 [bold magenta]Type:[/] {doc_type}
@@ -267,9 +285,8 @@ def show_document(
   Project: {d.project.name if d.project else 'N/A'}
   Folder: {d.folder.get_path() if d.folder else 'N/A'}
 
-[bold blue]Gemini Integration:[/]
-  File ID: {d.gemini_file_id or 'N/A'}
-  Last Synced: {format_timestamp(d.gemini_synced_at) if d.gemini_synced_at else 'Never'}
+[bold blue]File Search:[/]
+  Status: {index_status}
 
 [bold white]Metadata:[/]
   File Size: {d.file_size or 'N/A'} bytes
