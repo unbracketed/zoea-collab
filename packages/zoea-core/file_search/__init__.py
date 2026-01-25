@@ -45,8 +45,14 @@ from .exceptions import (
 from .registry import FileSearchRegistry
 from .types import DocumentContent, DocumentReference, SearchResult, SourceReference, StoreInfo
 
-# Import backends to trigger registration
-from . import backends  # noqa: F401
+
+def _ensure_backends_registered():
+    """Lazy import of backends to avoid circular imports during Django setup."""
+    from . import backends  # noqa: F401
+
+
+# Register backends lazily when registry is first accessed
+FileSearchRegistry._ensure_backends = _ensure_backends_registered
 
 __all__ = [
     # Core classes

@@ -3,6 +3,8 @@ Django management command to reindex documents in the file search store.
 
 This command re-indexes all documents for a project, ensuring that newly
 supported document types (like Word and Excel) are properly searchable.
+
+Supports both synchronous (inline) and background (Django-Q2) execution modes.
 """
 
 from django.core.management.base import BaseCommand, CommandError
@@ -45,10 +47,22 @@ class Command(BaseCommand):
             type=str,
             help="Only reindex specific document type (e.g., WordDocument, SpreadsheetDocument)",
         )
+        parser.add_argument(
+            "--background",
+            action="store_true",
+            help="Queue indexing tasks to run in background via Django-Q2",
+        )
+        parser.add_argument(
+            "--batch-size",
+            type=int,
+            default=50,
+            help="Batch size for background indexing (default: 50)",
+        )
 
     def handle(self, *args, **options):
         self.stdout.write("=" * 70)
-        self.stdout.write(self.style.HTTP_INFO("Document Reindexing"))
+        mode = "Background" if options["background"] else "Inline"
+        self.stdout.write(self.style.HTTP_INFO(f"Document Reindexing ({mode} Mode)"))
         self.stdout.write("=" * 70)
         self.stdout.write("")
 
@@ -66,17 +80,28 @@ class Command(BaseCommand):
         total_indexed = 0
         total_skipped = 0
         total_failed = 0
+        total_queued = 0
 
         for project in projects:
-            indexed, skipped, failed = self.reindex_project(
-                project,
-                force=options["force"],
-                dry_run=options["dry_run"],
-                type_filter=options.get("type"),
-            )
-            total_indexed += indexed
-            total_skipped += skipped
-            total_failed += failed
+            if options["background"]:
+                queued = self.queue_project_reindex(
+                    project,
+                    force=options["force"],
+                    dry_run=options["dry_run"],
+                    type_filter=options.get("type"),
+                    batch_size=options["batch_size"],
+                )
+                total_queued += queued
+            else:
+                indexed, skipped, failed = self.reindex_project(
+                    project,
+                    force=options["force"],
+                    dry_run=options["dry_run"],
+                    type_filter=options.get("type"),
+                )
+                total_indexed += indexed
+                total_skipped += skipped
+                total_failed += failed
 
         # Final summary
         self.stdout.write("=" * 70)
@@ -84,7 +109,19 @@ class Command(BaseCommand):
         self.stdout.write("=" * 70)
         self.stdout.write(f"  Total projects: {len(projects)}")
 
-        if options["dry_run"]:
+        if options["background"]:
+            if options["dry_run"]:
+                self.stdout.write(
+                    self.style.WARNING(f"  [DRY RUN] Would queue: {total_queued} tasks")
+                )
+            else:
+                self.stdout.write(
+                    self.style.SUCCESS(f"  Queued: {total_queued} background tasks")
+                )
+                self.stdout.write(
+                    "  Run `python manage.py qcluster` to process tasks"
+                )
+        elif options["dry_run"]:
             self.stdout.write(
                 self.style.WARNING(f"  [DRY RUN] Would index: {total_indexed}")
             )
@@ -192,3 +229,64 @@ class Command(BaseCommand):
         self.stdout.write("")
 
         return indexed, skipped, failed
+
+    def queue_project_reindex(self, project, force=False, dry_run=False, type_filter=None, batch_size=50):
+        """Queue documents for background reindexing via Django-Q2."""
+        self.stdout.write("-" * 70)
+        self.stdout.write(self.style.HTTP_INFO(f"Project: {project.name} (ID: {project.id})"))
+
+        # Get documents to reindex
+        documents = Document.objects.filter(project=project).select_subclasses()
+
+        if type_filter:
+            documents = [
+                doc for doc in documents if doc.get_type_name() == type_filter
+            ]
+            self.stdout.write(f"  Filtering by type: {type_filter}")
+        else:
+            documents = list(documents)
+
+        doc_count = len(documents)
+        self.stdout.write(f"  Documents to queue: {doc_count}")
+        self.stdout.write("")
+
+        if doc_count == 0:
+            self.stdout.write("  No documents to queue")
+            return 0
+
+        if dry_run:
+            # Calculate how many batches would be created
+            num_batches = (doc_count + batch_size - 1) // batch_size
+            self.stdout.write(
+                self.style.WARNING(
+                    f"  [DRY RUN] Would queue {num_batches} batch task(s) "
+                    f"for {doc_count} documents"
+                )
+            )
+            return num_batches
+
+        from file_search.tasks import queue_batch_document_indexing
+
+        # Group documents into batches
+        queued_tasks = 0
+        for i in range(0, doc_count, batch_size):
+            batch = documents[i:i + batch_size]
+            document_ids = [doc.id for doc in batch]
+
+            task_id = queue_batch_document_indexing(document_ids, project.id)
+            queued_tasks += 1
+
+            self.stdout.write(
+                f"    {self.style.SUCCESS('+')} Queued batch {queued_tasks}: "
+                f"{len(document_ids)} documents (task: {task_id[:8]}...)"
+            )
+
+        self.stdout.write("")
+        self.stdout.write(
+            f"  Project summary: "
+            f"{self.style.SUCCESS(f'{queued_tasks} tasks queued')} "
+            f"for {doc_count} documents"
+        )
+        self.stdout.write("")
+
+        return queued_tasks

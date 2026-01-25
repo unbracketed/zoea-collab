@@ -125,6 +125,7 @@ nav:
     - Content Transformations: features/transformations.md
     - Document RAG Chat: features/document-rag.md
     - Email Gateway: features/email-gateway.md
+    - File Search Indexing: features/file-search-indexing.md
     - Gemini File Search: features/gemini-search.md
     - Clipboard System: features/clipboard.md
     - Rich Text Documents: features/rich-text-documents.md

@@ -1,5 +1,9 @@
 """
 Signals for document indexing into the file search store.
+
+Document indexing is performed as background tasks via Django-Q2 to avoid
+blocking the response cycle. Tasks are queued on transaction commit to ensure
+the document is fully persisted before indexing.
 """
 
 from django.db import transaction
@@ -11,15 +15,16 @@ from .models import Document, DocumentCollectionItem
 
 @receiver(post_save, sender=Document)
 def index_document_on_save(sender, instance: Document, **kwargs) -> None:
+    """Queue document for background indexing after save."""
     if getattr(instance, "_skip_file_search", False):
         return
 
-    def _index():
-        from file_search.indexing import index_document
+    def _queue():
+        from file_search.tasks import queue_document_indexing
 
-        index_document(instance)
+        queue_document_indexing(instance.id, instance.project_id)
 
-    transaction.on_commit(_index)
+    transaction.on_commit(_queue)
 
 
 @receiver(post_save, sender=Document)
@@ -83,6 +88,7 @@ def remove_document_on_delete(sender, instance: Document, **kwargs) -> None:
 
 @receiver(post_save, sender=DocumentCollectionItem)
 def reindex_document_on_collection_save(sender, instance: DocumentCollectionItem, **kwargs) -> None:
+    """Queue document for reindexing when added to a collection (metadata update)."""
     if not instance.content_type_id or not instance.object_id:
         return
 
@@ -90,18 +96,19 @@ def reindex_document_on_collection_save(sender, instance: DocumentCollectionItem
     if not model_cls or not issubclass(model_cls, Document):
         return
 
-    def _reindex():
-        from file_search.indexing import index_document
+    def _queue_reindex():
+        from file_search.tasks import queue_document_indexing
 
         document = model_cls.objects.filter(id=instance.object_id).first()
         if document:
-            index_document(document)
+            queue_document_indexing(document.id, document.project_id)
 
-    transaction.on_commit(_reindex)
+    transaction.on_commit(_queue_reindex)
 
 
 @receiver(post_delete, sender=DocumentCollectionItem)
 def reindex_document_on_collection_delete(sender, instance: DocumentCollectionItem, **kwargs) -> None:
+    """Queue document for reindexing when removed from a collection (metadata update)."""
     if not instance.content_type_id or not instance.object_id:
         return
 
@@ -109,11 +116,11 @@ def reindex_document_on_collection_delete(sender, instance: DocumentCollectionIt
     if not model_cls or not issubclass(model_cls, Document):
         return
 
-    def _reindex():
-        from file_search.indexing import index_document
+    def _queue_reindex():
+        from file_search.tasks import queue_document_indexing
 
         document = model_cls.objects.filter(id=instance.object_id).first()
         if document:
-            index_document(document)
+            queue_document_indexing(document.id, document.project_id)
 
-    transaction.on_commit(_reindex)
+    transaction.on_commit(_queue_reindex)

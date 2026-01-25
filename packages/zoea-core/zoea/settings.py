@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'sandboxes',
     'agent_wrappers',
     'output_dispatch',
+    'file_search',
     'django_q',
 ]
 

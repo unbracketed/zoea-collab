@@ -12,4 +12,4 @@ class PlatformAdaptersConfig(AppConfig):
 
     def ready(self):
         """Import signal handlers when the app is ready."""
-        pass
+        from . import signals  # noqa: F401

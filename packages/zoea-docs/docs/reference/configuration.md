@@ -36,11 +36,13 @@ These variables **must** be set for the application to function:
 | `FILE_SEARCH_BACKEND` | `chromadb` | File search backend (`chromadb` or `gemini`) |
 | `CHROMADB_PERSIST_DIRECTORY` | `None` | Optional directory to persist ChromaDB data |
 | `FILE_SEARCH_MAX_TEXT_BYTES` | `2097152` | Max bytes to read from text files when indexing |
+| `FILE_SEARCH_DISABLE_BACKGROUND_INDEXING` | `False` | Disable async indexing (run synchronously instead) |
 | `IMAGE_CAPTION_PROVIDER` | `openai` | Provider for image captioning |
 | `IMAGE_CAPTION_MODEL` | `gpt-4o` | Model for image captioning |
 | `IMAGE_CAPTION_PROMPT` | `None` | Override prompt for image captioning |
 
-File search stores are scoped per project and updated as content changes.
+File search stores are scoped per project and updated as content changes via background tasks.
+See [File Search Indexing](../features/file-search-indexing.md) for details on automatic indexing.
 
 ### Agent Skills
 

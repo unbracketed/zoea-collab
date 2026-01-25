@@ -766,6 +766,15 @@ class Document(models.Model):
         null=True,
         help_text="Last time this document was synced to Gemini File Search"
     )
+    gemini_sync_error = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Error message from last failed sync attempt"
+    )
+    gemini_sync_attempts = models.IntegerField(
+        default=0,
+        help_text="Number of sync attempts (for retry tracking)"
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

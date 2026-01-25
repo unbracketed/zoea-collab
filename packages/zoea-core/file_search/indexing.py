@@ -250,6 +250,95 @@ def index_email_message(email_message, *, backend: str | None = None) -> None:
     )
 
 
+def index_platform_message(platform_message, *, backend: str | None = None) -> None:
+    """Index a platform message (webhook) into the project store."""
+    if not platform_message.project_id:
+        logger.debug("Skipping platform message %s without project", platform_message.id)
+        return
+
+    try:
+        store = FileSearchRegistry.get(backend)
+        store_info = ensure_project_store(platform_message.project, backend=backend)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to initialize file search backend: %s", exc)
+        return
+
+    record_id = f"platform-{platform_message.message_id}"
+
+    # Build content from message text and attachment info
+    content_parts = []
+    if platform_message.content:
+        content_parts.append(platform_message.content.strip())
+
+    # Include attachment metadata for searchability
+    attachments = platform_message.attachments or []
+    if attachments:
+        attachment_text = _format_attachments_for_index(attachments)
+        if attachment_text:
+            content_parts.append(f"\n\nAttachments:\n{attachment_text}")
+
+    content = "\n".join(content_parts)
+    if not content.strip():
+        return
+
+    metadata = {
+        "source_type": "platform_message",
+        "platform_message_id": str(platform_message.message_id),
+        "platform_type": platform_message.connection.platform_type,
+        "connection_id": str(platform_message.connection.connection_id),
+        "connection_name": platform_message.connection.name,
+        "organization_id": str(platform_message.organization_id),
+        "project_id": str(platform_message.project_id),
+        "direction": platform_message.direction,
+        "channel_id": platform_message.channel_id,
+        "thread_id": platform_message.thread_id,
+        "sender_id": platform_message.sender_id,
+        "sender_name": platform_message.sender_name,
+    }
+
+    if platform_message.sender_email:
+        metadata["sender_email"] = platform_message.sender_email
+
+    display_name = _build_platform_message_display_name(platform_message)
+
+    _upsert_text_record(
+        store,
+        store_id=store_info.store_id,
+        record_id=record_id,
+        content=content,
+        metadata=metadata,
+        display_name=display_name,
+    )
+
+
+def _format_attachments_for_index(attachments: list) -> str:
+    """Format attachment metadata as searchable text."""
+    parts = []
+    for att in attachments:
+        if isinstance(att, dict):
+            filename = att.get("filename") or att.get("name") or ""
+            url = att.get("url") or ""
+            content_type = att.get("content_type") or att.get("type") or ""
+
+            if filename:
+                parts.append(f"- {filename}")
+                if content_type:
+                    parts.append(f"  Type: {content_type}")
+            elif url:
+                parts.append(f"- {url}")
+    return "\n".join(parts)
+
+
+def _build_platform_message_display_name(platform_message) -> str:
+    """Build a display name for a platform message."""
+    platform = platform_message.connection.platform_type.title()
+    sender = platform_message.sender_name or platform_message.sender_id or "Unknown"
+    preview = (platform_message.content or "")[:30]
+    if len(platform_message.content or "") > 30:
+        preview += "..."
+    return f"{platform} from {sender}: {preview}"
+
+
 def _upsert_text_record(store, *, store_id: str, record_id: str, content: str, metadata: dict,
                         display_name: str | None = None) -> None:
     """Remove a record by ID (if supported) and re-add with updated content."""

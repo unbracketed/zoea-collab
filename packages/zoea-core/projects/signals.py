@@ -1,11 +1,15 @@
 """
-Signals for automatic Project creation.
+Signals for automatic Project creation and working directory indexing.
 
-This module handles creating a default Project when an OrganizationUser is created.
+This module handles:
+- Creating a default Project when an OrganizationUser is created
+- Indexing a project's working directory when a Project is created
 """
 
 import os
 from pathlib import Path
+
+from django.db import transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from organizations.models import OrganizationUser
@@ -52,3 +56,30 @@ def create_default_project(sender, instance, created, **kwargs):
         description=f"Default project for {organization.name}",
         created_by=user
     )
+
+
+@receiver(post_save, sender=Project)
+def index_project_working_directory_on_create(sender, instance: Project, created: bool, **kwargs) -> None:
+    """
+    Queue project working directory for indexing when a project is created.
+
+    Only indexes if:
+    - The project was just created (not updated)
+    - The project has a working_directory set
+    - The _skip_directory_indexing flag is not set
+    """
+    if not created:
+        return
+
+    if getattr(instance, "_skip_directory_indexing", False):
+        return
+
+    if not instance.working_directory:
+        return
+
+    def _queue():
+        from file_search.tasks import queue_project_working_directory_indexing
+
+        queue_project_working_directory_indexing(instance.id)
+
+    transaction.on_commit(_queue)

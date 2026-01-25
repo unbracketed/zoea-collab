@@ -32,6 +32,15 @@ class FileSearchRegistry:
     _backends: dict[str, type[FileSearchStore]] = {}
     _instances: dict[str, FileSearchStore] = {}
     _default: str | None = None
+    _ensure_backends: callable = None  # Set by file_search/__init__.py
+    _backends_loaded: bool = False
+
+    @classmethod
+    def _load_backends(cls) -> None:
+        """Ensure backends are loaded (lazy initialization)."""
+        if not cls._backends_loaded and cls._ensure_backends is not None:
+            cls._backends_loaded = True
+            cls._ensure_backends()
 
     @classmethod
     def register(
@@ -88,6 +97,9 @@ class FileSearchRegistry:
             BackendNotFoundError: If backend not registered
             ConfigurationError: If no default is configured
         """
+        # Ensure backends are loaded
+        cls._load_backends()
+
         # Determine which backend to use
         backend_name = name
 
@@ -140,6 +152,7 @@ class FileSearchRegistry:
         Returns:
             List of backend identifiers
         """
+        cls._load_backends()
         return list(cls._backends.keys())
 
     @classmethod
@@ -150,6 +163,7 @@ class FileSearchRegistry:
         Returns:
             Default backend name or None
         """
+        cls._load_backends()
         return getattr(settings, "FILE_SEARCH_BACKEND", None) or cls._default
 
     @classmethod
