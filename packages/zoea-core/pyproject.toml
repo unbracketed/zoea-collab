@@ -38,6 +38,7 @@ dependencies = [
     "langgraph",
     "langgraph-checkpoint-postgres>=3.0.3",
     "croniter>=6.0.0",
+    "textual>=3.2.0",
 ]
 
 [project.scripts]
@@ -82,6 +83,7 @@ build-backend = "setuptools.build_meta"
 packages = [
     "cli",
     "cli.commands",
+    "cli.tui",
     "cli.utils",
     "accounts",
     "chat",
@@ -112,3 +114,7 @@ packages = [
 [tool.uv]
 package = true
 prerelease = "allow"
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+]

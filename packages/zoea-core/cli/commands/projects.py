@@ -1,5 +1,6 @@
 """Project management commands."""
 
+from __future__ import annotations
 
 import typer
 from django.apps import apps
@@ -308,4 +309,85 @@ def create_project(
         raise
     except Exception as e:
         print_error(f"Error creating project: {e}")
+        raise typer.Exit(code=1)
+
+
+@projects_app.command(name="chat")
+@with_django
+def chat_with_project(
+    name: str = typer.Argument(..., help="Project name or ID"),
+    org: str | None = typer.Option(None, "--org", "-o", help="Organization name"),
+    conversation_id: int | None = typer.Option(
+        None, "--conversation", "-c", help="Resume an existing conversation by ID"
+    ),
+):
+    """Start an interactive chat session with project context.
+
+    Opens a terminal UI for chatting with an AI assistant in the context
+    of the specified project. Messages are persisted and can be resumed later.
+
+    Examples:
+        zoea projects chat "My Project"
+        zoea projects chat "My Project" --conversation 42
+        zoea projects chat 123  # by project ID
+    """
+    try:
+        from cli.tui.chat import ProjectChatApp
+
+        Project = apps.get_model("projects", "Project")
+        Organization = apps.get_model("organizations", "Organization")
+        Conversation = apps.get_model("chat", "Conversation")
+
+        # Try to find project by ID first, then by name
+        project = None
+        try:
+            project_id = int(name)
+            project = Project.objects.get(id=project_id)
+        except (ValueError, Project.DoesNotExist):
+            # Search by name
+            projects = Project.objects.filter(name=name)
+
+            # Apply org filter if provided
+            org_name = get_organization_filter(org)
+            if org_name:
+                try:
+                    organization = Organization.objects.get(name=org_name)
+                    projects = projects.filter(organization=organization)
+                except Organization.DoesNotExist:
+                    print_error(f"Organization not found: {org_name}")
+                    raise typer.Exit(code=1)
+
+            if not projects.exists():
+                print_error(f"Project not found: {name}")
+                raise typer.Exit(code=1)
+
+            if projects.count() > 1:
+                print_error(
+                    f"Multiple projects found with name '{name}'. "
+                    "Please specify --org or use project ID."
+                )
+                raise typer.Exit(code=1)
+
+            project = projects.first()
+
+        # Validate conversation belongs to project if specified
+        if conversation_id:
+            if not Conversation.objects.filter(id=conversation_id, project=project).exists():
+                print_error(
+                    f"Conversation {conversation_id} not found for project '{project.name}'"
+                )
+                raise typer.Exit(code=1)
+
+        # Launch the Textual chat app
+        app = ProjectChatApp(
+            project_id=project.id,
+            project_name=project.name,
+            conversation_id=conversation_id,
+        )
+        app.run()
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print_error(f"Error starting chat: {e}")
         raise typer.Exit(code=1)

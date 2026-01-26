@@ -81,6 +81,17 @@ ZOEA_FRONTEND_PORT=5174
 
 The CORS configuration and frontend API base URL will automatically adjust.
 
+### Docker Compose Backend Command
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ZOEA_BACKEND_COMMAND` | `uv run python manage.py runserver 0.0.0.0:8000` | Backend command used by the zoea-core Docker Compose stack |
+
+**Example (Gunicorn):**
+```env
+ZOEA_BACKEND_COMMAND="uv run gunicorn zoea.wsgi:application --bind 0.0.0.0:8000 --workers 2"
+```
+
 ### Document Import Limits
 
 | Variable | Default | Description |
