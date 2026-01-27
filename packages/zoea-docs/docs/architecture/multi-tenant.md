@@ -1,13 +1,13 @@
 # Multi-Tenant Architecture
 
-Zoea Studio implements multi-tenant architecture using **django-organizations**. This guide establishes critical patterns that **all developers must follow** when building new features.
+Zoea Collab implements multi-tenant architecture using **django-organizations**. This guide establishes critical patterns that **all developers must follow** when building new features.
 
 !!! danger "Critical Pattern"
     Every tenant-scoped resource MUST include an `organization` ForeignKey. Access control MUST use custom querysets, not view-level checks.
 
 ## Overview
 
-Every Django user in Zoea Studio belongs to an Organization via an Account. This provides:
+Every Django user in Zoea Collab belongs to an Organization via an Account. This provides:
 
 - **Multi-tenant architecture** out of the box
 - **Clear user-organization** relationships
@@ -232,7 +232,7 @@ def list_documents(request):
     return [{"id": d.id, "title": d.title} for d in documents]
 ```
 
-## Common Patterns in Zoea Studio
+## Common Patterns in Zoea Collab
 
 ### Pattern: Organization-Scoped Conversations
 
@@ -303,7 +303,7 @@ class Document(models.Model):
 
 ## Helper Utilities
 
-Zoea Studio provides utility functions in `backend/accounts/utils.py`:
+Zoea Collab provides utility functions in `backend/accounts/utils.py`:
 
 ### `get_user_organization(user)`
 
@@ -453,7 +453,7 @@ def test_document_access(user, organization):
 
 ## Implementation Checklist
 
-When adding new features to Zoea Studio:
+When adding new features to Zoea Collab:
 
 - [ ] Does this resource belong to an organization? → Add `organization` ForeignKey
 - [ ] Does this need user access control? → Implement custom queryset with `for_user()` method

@@ -224,10 +224,10 @@ def check_file_search() -> dict[str, Any]:
 def check_ports() -> dict[str, Any]:
     """Check port configuration."""
     return {
-        "backend": os.environ.get("ZOEA_BACKEND_PORT", "8000"),
+        "backend": os.environ.get("ZOEA_CORE_BACKEND_PORT", "8000"),
         "frontend": os.environ.get("ZOEA_FRONTEND_PORT", "5173"),
         "docs": os.environ.get("ZOEA_DOCS_PORT", "8001"),
-        "postgres": os.environ.get("ZOEA_POSTGRES_PORT", "5433"),
+        "postgres": os.environ.get("ZOEA_CORE_POSTGRES_PORT", "5433"),
         "issues": [],
     }
 
@@ -311,7 +311,7 @@ def output_report(report: dict[str, Any], format: OutputFormat):
 
     # Print header
     console.print()
-    console.print("[bold cyan]Zoea Studio Doctor[/bold cyan]")
+    console.print("[bold cyan]Zoea Collab Doctor[/bold cyan]")
     console.print("═" * 54)
 
     # Configuration Files

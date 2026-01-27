@@ -121,9 +121,16 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
     # Determine if this is a remote database (Supabase, etc.) that requires SSL
     # Local databases (localhost, 127.0.0.1) typically don't need SSL
-    is_remote_db = not any(
-        host in DATABASE_URL for host in ['localhost', '127.0.0.1', 'host.docker.internal']
-    )
+    # Treat Docker service names as local (avoid forcing SSL inside Compose).
+    local_db_hosts = [
+        'localhost',
+        '127.0.0.1',
+        'host.docker.internal',
+        'db',
+        'postgres',
+        'zoea-core-db',
+    ]
+    is_remote_db = not any(host in DATABASE_URL for host in local_db_hosts)
 
     # Use shorter connection lifetime for local dev to avoid exhausting connections
     # Production (remote) can use persistent connections
@@ -235,7 +242,7 @@ LOCAL_MODEL_ENDPOINT = os.getenv("LOCAL_MODEL_ENDPOINT", "http://localhost:11434
 MAILGUN_API_KEY = os.getenv("MAILGUN_API_KEY")
 MAILGUN_DOMAIN = os.getenv("MAILGUN_DOMAIN")
 
-# Zoea Studio Settings
+# Zoea Collab Settings
 ZOEA_DEFAULT_THEME = os.getenv("ZOEA_DEFAULT_THEME", "ocean")
 
 # Document Import Limits
@@ -298,7 +305,7 @@ CORS_ALLOW_CREDENTIALS = True  # Required for session cookies
 
 # Build CORS origins dynamically
 ZOEA_FRONTEND_PORT = os.getenv("ZOEA_FRONTEND_PORT", "5173")
-ZOEA_BACKEND_PORT = os.getenv("ZOEA_BACKEND_PORT", "8000")
+ZOEA_CORE_BACKEND_PORT = os.getenv("ZOEA_CORE_BACKEND_PORT", "8000")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "")
 EXE_DEV_HOSTNAME = os.getenv("EXE_DEV_HOSTNAME", "")
 
@@ -314,7 +321,7 @@ if EXE_DEV_HOSTNAME:
     CORS_ALLOWED_ORIGINS.extend([
         f"https://{EXE_DEV_HOSTNAME}.exe.xyz",
         f"https://{EXE_DEV_HOSTNAME}.exe.xyz:{ZOEA_FRONTEND_PORT}",
-        f"https://{EXE_DEV_HOSTNAME}.exe.xyz:{ZOEA_BACKEND_PORT}",
+        f"https://{EXE_DEV_HOSTNAME}.exe.xyz:{ZOEA_CORE_BACKEND_PORT}",
     ])
 
 # Add production origins
@@ -365,7 +372,7 @@ if EXE_DEV_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.extend([
         f"https://{EXE_DEV_HOSTNAME}.exe.xyz",
         f"https://{EXE_DEV_HOSTNAME}.exe.xyz:{ZOEA_FRONTEND_PORT}",
-        f"https://{EXE_DEV_HOSTNAME}.exe.xyz:{ZOEA_BACKEND_PORT}",
+        f"https://{EXE_DEV_HOSTNAME}.exe.xyz:{ZOEA_CORE_BACKEND_PORT}",
     ])
 
 if FRONTEND_URL:

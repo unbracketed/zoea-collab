@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Complete reference for all configuration options in Zoea Studio, including environment variables, Django settings, and Vite configuration.
+Complete reference for all configuration options in Zoea Collab, including environment variables, Django settings, and Vite configuration.
 
 ## Environment Variables
 
@@ -67,15 +67,17 @@ Relative paths resolve from the repository root (`BASE_DIR.parent`).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZOEA_BACKEND_PORT` | `8000` | Port for Django development server |
+| `ZOEA_CORE_BACKEND_PORT` | `8000` | Port for Django development server |
 | `ZOEA_FRONTEND_PORT` | `5173` | Port for Vite development server |
+| `ZOEA_CORE_BACKEND_PORT` | `8000` | Host port for the zoea-core Docker Compose backend |
+| `ZOEA_CORE_POSTGRES_PORT` | `5432` | Host port for the zoea-core Docker Compose database |
 
 **Port Conflict Resolution:**
 
 If default ports are already in use, change them in `.env`:
 
 ```env
-ZOEA_BACKEND_PORT=8001
+ZOEA_CORE_BACKEND_PORT=8001
 ZOEA_FRONTEND_PORT=5174
 ```
 
@@ -85,11 +87,11 @@ The CORS configuration and frontend API base URL will automatically adjust.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ZOEA_BACKEND_COMMAND` | `uv run python manage.py runserver 0.0.0.0:8000` | Backend command used by the zoea-core Docker Compose stack |
+| `ZOEA_CORE_BACKEND_COMMAND` | `uv run python manage.py runserver 0.0.0.0:8000` | Backend command used by the zoea-core Docker Compose stack |
 
 **Example (Gunicorn):**
 ```env
-ZOEA_BACKEND_COMMAND="uv run gunicorn zoea.wsgi:application --bind 0.0.0.0:8000 --workers 2"
+ZOEA_CORE_BACKEND_COMMAND="uv run gunicorn zoea.wsgi:application --bind 0.0.0.0:8000 --workers 2"
 ```
 
 ### Document Import Limits
@@ -112,10 +114,16 @@ Supported archive types: `.zip`, `.tar`, `.tar.gz`, `.tgz`.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | SQLite | Database connection URL (optional, for PostgreSQL) |
+| `ZOEA_CORE_DATABASE_URL` | `postgresql://zoea:zoea@db:5432/zoea` | Database URL used by the zoea-core Docker Compose stack |
 
 **Example PostgreSQL URL:**
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/zoeastudio
+```
+
+**Example (zoea-core Docker Compose):**
+```env
+ZOEA_CORE_DATABASE_URL=postgresql://zoea:zoea@db:5432/zoea
 ```
 
 ### CORS Configuration
@@ -233,7 +241,7 @@ export default defineConfig(({ mode }) => {
 
     define: {
       'import.meta.env.VITE_API_URL': JSON.stringify(
-        `http://localhost:${env.ZOEA_BACKEND_PORT || 8000}`
+        `http://localhost:${env.ZOEA_CORE_BACKEND_PORT || 8000}`
       ),
     },
   };
@@ -276,7 +284,7 @@ mise loads `.env` automatically for all tasks.
 
 ```toml
 [tasks.dev-backend]
-run = "cd backend && uv run python manage.py runserver $ZOEA_BACKEND_PORT"
+run = "cd backend && uv run python manage.py runserver $ZOEA_CORE_BACKEND_PORT"
 description = "Run Django development server"
 
 [tasks.dev-frontend]

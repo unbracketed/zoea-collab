@@ -4,7 +4,7 @@
 - Offer rich preview/thumbnail experiences (grid/icon cards, hover previews, clipboard chips) so users understand a document without opening it.
 - Keep preview generation isolated per document type so new formats can plug in without branching logic.
 - Cache rendered artifacts and expose lightweight metadata so both backend APIs and frontend UI can stay responsive.
-- Respect Zoea Studio's multi-tenant boundaries (organization → project → workspace) and fit within the existing Documents app.
+- Respect Zoea Collab's multi-tenant boundaries (organization → project → workspace) and fit within the existing Documents app.
 - Stay in lockstep with Project Sources: previews must refresh when `sync_sources` imports/updates files so source-backed documents never show stale thumbnails.
 
 ## Preview Surfaces & Requirements

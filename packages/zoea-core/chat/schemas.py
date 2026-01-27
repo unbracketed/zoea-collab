@@ -15,7 +15,7 @@ class ChatRequest(BaseModel):
         default="ZoeaAssistant", description="Name of the agent to use"
     )
     instructions: str = Field(
-        default="You are a helpful AI assistant for Zoea Studio.",
+        default="You are a helpful AI assistant for Zoea Collab.",
         description="System instructions for the agent",
     )
     conversation_id: int | None = Field(

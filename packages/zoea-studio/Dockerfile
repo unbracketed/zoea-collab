@@ -1,4 +1,4 @@
-# Frontend Dockerfile for Zoea Studio
+# Frontend Dockerfile for Zoea Collab
 # Multi-stage build for production-ready React app
 
 # Stage 1: Build

@@ -1,6 +1,6 @@
 # Common Workflows
 
-Practical examples of common development workflows in Zoea Studio.
+Practical examples of common development workflows in Zoea Collab.
 
 ## Adding a New API Endpoint
 

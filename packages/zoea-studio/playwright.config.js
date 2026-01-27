@@ -3,7 +3,7 @@ import { loadEnv } from 'vite';
 
 // Load environment variables from project root
 const env = loadEnv('development', '../', '');
-const BACKEND_PORT = env.ZOEA_BACKEND_PORT || '8000';
+const BACKEND_PORT = env.ZOEA_CORE_BACKEND_PORT || '8000';
 const FRONTEND_PORT = env.ZOEA_FRONTEND_PORT || '5173';
 
 /**

@@ -1,10 +1,10 @@
 # Email Gateway
 
-The Email Gateway allows users to interact with Zoea Studio by sending emails. Inbound emails are converted to chat conversations, enabling email-based workflows.
+The Email Gateway allows users to interact with Zoea Collab by sending emails. Inbound emails are converted to chat conversations, enabling email-based workflows.
 
 ## Project and Workspace Email Addresses
 
-Each project and workspace in Zoea Studio has unique email addresses that enable targeted email routing.
+Each project and workspace in Zoea Collab has unique email addresses that enable targeted email routing.
 
 ### Canonical Email Addresses
 

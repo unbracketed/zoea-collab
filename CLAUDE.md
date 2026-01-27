@@ -37,7 +37,7 @@ cd packages/zoea-core && uv run python manage.py initialize_local_user
 
 ```bash
 mise run dev                    # Start all development servers
-mise run dev-backend            # Django at localhost:${ZOEA_BACKEND_PORT:-8000}
+mise run dev-backend            # Django at localhost:${ZOEA_CORE_BACKEND_PORT:-8000}
 mise run dev-frontend           # Vite at localhost:${ZOEA_FRONTEND_PORT:-5173}
 ```
 

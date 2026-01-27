@@ -1,6 +1,6 @@
 # LLM Providers & Agent Services
 
-This document provides a technical overview of the agent services, LLM provider integrations, and tool framework in Zoea Studio.
+This document provides a technical overview of the agent services, LLM provider integrations, and tool framework in Zoea Collab.
 
 ## Architecture Overview
 

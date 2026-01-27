@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Source interface provides an abstraction layer for document storage backends in Zoea Studio. This design allows projects to pull documents from various storage locations (local filesystem, S3, Cloudflare R2, etc.) without being coupled to a specific storage implementation.
+The Source interface provides an abstraction layer for document storage backends in Zoea Collab. This design allows projects to pull documents from various storage locations (local filesystem, S3, Cloudflare R2, etc.) without being coupled to a specific storage implementation.
 
 ## Architecture
 

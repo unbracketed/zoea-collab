@@ -61,7 +61,7 @@ class ChatAgentService:
         self.model_id = self.config.model_id
 
         self.agent_name: str | None = "ZoeaAssistant"
-        self.instructions: str | None = "You are a helpful AI assistant for Zoea Studio."
+        self.instructions: str | None = "You are a helpful AI assistant for Zoea Collab."
 
         logger.debug(
             "ChatAgentService initialized with provider=%s, model=%s",
@@ -72,7 +72,7 @@ class ChatAgentService:
     def create_agent(
         self,
         name: str = "ZoeaAssistant",
-        instructions: str = "You are a helpful AI assistant for Zoea Studio.",
+        instructions: str = "You are a helpful AI assistant for Zoea Collab.",
     ):
         """
         Set agent metadata for downstream requests.
@@ -106,7 +106,7 @@ class ChatAgentService:
         if not self.instructions or not self.agent_name:
             self.create_agent(
                 name=self.agent_name or "ZoeaAssistant",
-                instructions="You are a helpful AI assistant for Zoea Studio.",
+                instructions="You are a helpful AI assistant for Zoea Collab.",
             )
 
         # Build messages list
@@ -159,7 +159,7 @@ class ChatAgentService:
         if not self.instructions:
             self.create_agent(
                 name=self.agent_name or "ZoeaAssistant",
-                instructions="You are a helpful AI assistant for Zoea Studio.",
+                instructions="You are a helpful AI assistant for Zoea Collab.",
             )
 
         # Build messages list

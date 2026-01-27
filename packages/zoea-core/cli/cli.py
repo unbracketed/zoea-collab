@@ -1,4 +1,4 @@
-"""Zoea Studio CLI - Main entry point."""
+"""Zoea Collab CLI - Main entry point."""
 
 import typer
 
@@ -17,7 +17,7 @@ from cli.utils.formatting import console
 # Create main Typer app
 app = typer.Typer(
     name="zoea",
-    help="Zoea Studio CLI - Project Management",
+    help="Zoea Collab CLI - Project Management",
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
@@ -39,7 +39,7 @@ app.command(name="doctor")(doctor_command)
 
 @app.callback()
 def main_callback():
-    """Zoea Studio CLI for managing projects, documents, and more."""
+    """Zoea Collab CLI for managing projects, documents, and more."""
     pass
 
 

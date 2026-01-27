@@ -1,6 +1,6 @@
 # Technology Stack
 
-A comprehensive reference of all technologies, frameworks, and tools used in Zoea Studio.
+A comprehensive reference of all technologies, frameworks, and tools used in Zoea Collab.
 
 ## Backend Technologies
 

@@ -22,15 +22,15 @@ export default defineConfig(({ mode }) => {
       proxy: {
         // Proxy /media/ requests to Django backend for serving generated images
         '/media': {
-          target: env.VITE_API_BASE_URL || `http://localhost:${env.ZOEA_BACKEND_PORT || '8000'}`,
+          target: env.VITE_API_BASE_URL || `http://localhost:${env.ZOEA_CORE_BACKEND_PORT || '8000'}`,
           changeOrigin: true,
         },
       },
     },
-    // Expose ZOEA_BACKEND_PORT to the app via VITE_API_BASE_URL
+    // Expose ZOEA_CORE_BACKEND_PORT to the app via VITE_API_BASE_URL
     define: {
       'import.meta.env.VITE_API_BASE_URL': JSON.stringify(
-        env.VITE_API_BASE_URL || `http://localhost:${env.ZOEA_BACKEND_PORT || '8000'}`
+        env.VITE_API_BASE_URL || `http://localhost:${env.ZOEA_CORE_BACKEND_PORT || '8000'}`
       ),
     },
     optimizeDeps: {

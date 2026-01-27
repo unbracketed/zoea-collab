@@ -1,6 +1,6 @@
 # User Authentication and Registration
 
-Zoea Studio provides a comprehensive authentication system with user registration, email verification, and secure login. New users are automatically set up with their own organization, project, workspace, and clipboard.
+Zoea Collab provides a comprehensive authentication system with user registration, email verification, and secure login. New users are automatically set up with their own organization, project, workspace, and clipboard.
 
 ## Overview
 
@@ -38,7 +38,7 @@ The authentication system provides:
 
 ### What Happens When You Register
 
-When you create a new account, Zoea Studio automatically:
+When you create a new account, Zoea Collab automatically:
 
 1. **Creates your user account** with your chosen username and email
 2. **Sends a verification email** to confirm your email address
@@ -52,7 +52,7 @@ All of this happens automatically - you don't need to do anything except verify 
 
 ### Email Verification
 
-Email verification is **mandatory** in Zoea Studio. This ensures that:
+Email verification is **mandatory** in Zoea Collab. This ensures that:
 
 - You have access to the email address you provided
 - You can receive important notifications about your account
@@ -78,7 +78,7 @@ curl -X POST http://localhost:8000/api/auth/resend-verification \
 
 ## API Endpoints
 
-Zoea Studio provides REST API endpoints for authentication operations.
+Zoea Collab provides REST API endpoints for authentication operations.
 
 ### Check Authentication Status
 
@@ -256,7 +256,7 @@ curl -X POST http://localhost:8000/api/auth/logout \
 
 ## Command-Line Interface
 
-Zoea Studio provides a CLI command for creating users, useful for development, testing, and administrative tasks.
+Zoea Collab provides a CLI command for creating users, useful for development, testing, and administrative tasks.
 
 ### Create User via CLI
 
@@ -411,7 +411,7 @@ Verification links expire after 3 days for security reasons.
 
 ### Development: Email backend not configured
 
-In development, Zoea Studio uses the console email backend, which prints emails to the server console instead of sending them.
+In development, Zoea Collab uses the console email backend, which prints emails to the server console instead of sending them.
 
 **To see verification emails in development**:
 

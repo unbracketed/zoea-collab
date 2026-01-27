@@ -8,7 +8,7 @@ class Account(Organization):
     Each Account represents a company/team that can have multiple users.
 
     This extends the base Organization model from django-organizations with
-    Zoea Studio-specific fields for subscription management and settings.
+    Zoea Collab-specific fields for subscription management and settings.
     """
 
     SUBSCRIPTION_CHOICES = [

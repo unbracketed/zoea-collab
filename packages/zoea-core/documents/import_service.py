@@ -104,7 +104,7 @@ class ImportSummary:
 
 
 class DocumentImportService:
-    """Service for importing documents into Zoea Studio."""
+    """Service for importing documents into Zoea Collab."""
 
     def __init__(
         self,

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Docker entrypoint script for Zoea Studio backend
+# Docker entrypoint script for Zoea core backend
 # Runs migrations and initializes local user on first start
 
 set -e
@@ -7,7 +7,7 @@ set -e
 # Marker file to track initialization
 INIT_MARKER="/app/data/.initialized"
 
-echo "=== Zoea Studio Backend Startup ==="
+echo "=== Zoea Core Backend Startup ==="
 
 # Run database migrations
 echo "Running database migrations..."

@@ -10,7 +10,7 @@ import { test, expect, type Page } from '@playwright/test';
  * - Delete operations sync between editor and backend
  *
  * Prerequisites:
- * - Backend running on ZOEA_BACKEND_PORT (default: 8000)
+ * - Backend running on ZOEA_CORE_BACKEND_PORT (default: 8000)
  * - Frontend running on ZOEA_FRONTEND_PORT (default: 5173)
  * - Database initialized with admin/admin user
  *

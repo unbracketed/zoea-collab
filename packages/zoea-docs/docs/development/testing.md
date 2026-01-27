@@ -1,6 +1,6 @@
 # Playwright E2E Test Suite
 
-Comprehensive end-to-end testing for Zoea Studio using Playwright.
+Comprehensive end-to-end testing for Zoea Collab using Playwright.
 
 ## Directory Structure
 
@@ -76,7 +76,7 @@ npx playwright test tests/e2e/auth/login.spec.js:12
 
 Test configuration is in `playwright.config.js`. Key settings:
 
-- **Port Configuration**: Reads from `.env` (`ZOEA_BACKEND_PORT`, `ZOEA_FRONTEND_PORT`)
+- **Port Configuration**: Reads from `.env` (`ZOEA_CORE_BACKEND_PORT`, `ZOEA_FRONTEND_PORT`)
 - **Web Servers**: Automatically starts backend and frontend before tests
 - **Browsers**: Chromium (default), Firefox, WebKit available
 - **Reporters**: HTML, JSON, and console output
@@ -86,7 +86,7 @@ Test configuration is in `playwright.config.js`. Key settings:
 Tests use the same port configuration as the application:
 
 ```env
-ZOEA_BACKEND_PORT=8000    # Django backend port
+ZOEA_CORE_BACKEND_PORT=8000    # Django backend port
 ZOEA_FRONTEND_PORT=5173   # Vite frontend port
 ```
 

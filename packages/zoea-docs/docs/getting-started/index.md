@@ -129,8 +129,8 @@ If you run into issues:
 
 - Ensure `.env` file exists with valid `OPENAI_API_KEY`
 - Run `mise run install` to ensure dependencies are installed
-- Check that port 8000 (or your configured `ZOEA_BACKEND_PORT`) is not already in use
-- **Port Conflict**: If port 8000 is taken, edit `.env` and change `ZOEA_BACKEND_PORT=8001`
+- Check that port 8000 (or your configured `ZOEA_CORE_BACKEND_PORT`) is not already in use
+- **Port Conflict**: If port 8000 is taken, edit `.env` and change `ZOEA_CORE_BACKEND_PORT=8001`
 
 ### Frontend won't connect to backend
 
@@ -138,7 +138,7 @@ If you run into issues:
 - Check browser console for CORS errors
 - Verify both services are using the same port configuration from `.env`
 - **Port Conflict**: If port 5173 is taken, edit `.env` and change `ZOEA_FRONTEND_PORT=5174`
-- The API base URL is automatically configured based on `ZOEA_BACKEND_PORT` in `.env`
+- The API base URL is automatically configured based on `ZOEA_CORE_BACKEND_PORT` in `.env`
 
 ### Tests failing
 

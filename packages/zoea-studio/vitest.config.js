@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => {
     // Expose API base URL to tests
     define: {
       'import.meta.env.VITE_API_BASE_URL': JSON.stringify(
-        env.VITE_API_BASE_URL || `http://localhost:${env.ZOEA_BACKEND_PORT || '8000'}`
+        env.VITE_API_BASE_URL || `http://localhost:${env.ZOEA_CORE_BACKEND_PORT || '8000'}`
       ),
     },
   };

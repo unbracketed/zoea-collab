@@ -1,6 +1,6 @@
 # API Reference
 
-Zoea Studio provides a RESTful API built with **django-ninja**, featuring automatic validation, type safety, and interactive documentation.
+Zoea Collab provides a RESTful API built with **django-ninja**, featuring automatic validation, type safety, and interactive documentation.
 
 ## Interactive API Documentation
 
@@ -27,7 +27,7 @@ This interface provides:
 http://localhost:8000/api
 ```
 
-The base URL is configured via the `ZOEA_BACKEND_PORT` environment variable (default: 8000).
+The base URL is configured via the `ZOEA_CORE_BACKEND_PORT` environment variable (default: 8000).
 
 **Production:**
 ```
@@ -36,7 +36,7 @@ https://yourdomain.com/api
 
 ## Authentication
 
-Currently, Zoea Studio uses **Django session-based authentication**:
+Currently, Zoea Collab uses **Django session-based authentication**:
 
 - Session cookies are included automatically in requests
 - CORS is configured to allow credentials from the frontend

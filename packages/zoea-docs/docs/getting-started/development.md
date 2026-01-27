@@ -58,7 +58,7 @@ You'll need **two terminal windows** open:
 If you need to use different ports (e.g., to avoid conflicts with other applications), edit the `.env` file:
 
 ```env
-ZOEA_BACKEND_PORT=8001    # Django will run on port 8001
+ZOEA_CORE_BACKEND_PORT=8001    # Django will run on port 8001
 ZOEA_FRONTEND_PORT=5174   # Vite will run on port 5174
 ```
 
@@ -313,7 +313,7 @@ Key environment variables in `.env`:
 | `SECRET_KEY` | Django secret key | Auto-generated |
 | `DEBUG` | Django debug mode | `True` |
 | `ALLOWED_HOSTS` | Allowed HTTP hosts | `localhost,127.0.0.1` |
-| `ZOEA_BACKEND_PORT` | Django server port | `8000` |
+| `ZOEA_CORE_BACKEND_PORT` | Django server port | `8000` |
 | `ZOEA_FRONTEND_PORT` | Vite server port | `5173` |
 
 ## Next Steps
@@ -329,7 +329,7 @@ Now that you understand the development workflow:
 
 ### Backend server won't start
 
-- Check that port 8000 (or `ZOEA_BACKEND_PORT`) is available
+- Check that port 8000 (or `ZOEA_CORE_BACKEND_PORT`) is available
 - Ensure `.env` file exists with valid `OPENAI_API_KEY`
 - Verify migrations have been run: `cd backend && uv run python manage.py migrate`
 

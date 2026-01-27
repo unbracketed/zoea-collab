@@ -631,4 +631,4 @@ use the registry so we keep a single codepath for conversions.
 
 ## License
 
-This transformation system is part of the Zoea Studio project.
+This transformation system is part of the Zoea Collab project.

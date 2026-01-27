@@ -1,6 +1,6 @@
 # Local User Initialization
 
-Zoea Studio uses a multi-tenant architecture where every user belongs to an organization. This guide explains how to create your first local user, organization, project, and workspace using the `initialize_local_user` management command.
+Zoea Collab uses a multi-tenant architecture where every user belongs to an organization. This guide explains how to create your first local user, organization, project, and workspace using the `initialize_local_user` management command.
 
 ## Overview
 
@@ -12,7 +12,7 @@ The `initialize_local_user` command is a convenient way to set up a complete loc
 4. **Workspace** - A default workspace (created automatically via signals)
 
 !!! info "Why Organizations?"
-    Zoea Studio is built on django-organizations for multi-tenancy. Every resource (projects, workspaces, documents) is scoped to an organization. This enables secure multi-tenant SaaS deployments.
+    Zoea Collab is built on django-organizations for multi-tenancy. Every resource (projects, workspaces, documents) is scoped to an organization. This enables secure multi-tenant SaaS deployments.
 
 ## Basic Usage
 
@@ -68,7 +68,7 @@ uv run python manage.py initialize_local_user \
 | `--force` | Skip confirmation prompts (for non-interactive use) | `false` |
 
 !!! tip "Getting Started with Demo Documents"
-    Use `--demo-docs` to load sample documents that demonstrate Zoea Studio's features:
+    Use `--demo-docs` to load sample documents that demonstrate Zoea Collab's features:
     ```bash
     uv run python manage.py initialize_local_user --demo-docs
     ```
@@ -117,7 +117,7 @@ When using `--demo-docs`, sample documents are loaded:
 - **D2 diagrams** (.d2) - Architecture and flow diagrams
 - **Folders** - Organized structure mirroring the demo-docs directory
 
-These demo documents help you explore Zoea Studio's document management features right away.
+These demo documents help you explore Zoea Collab's document management features right away.
 
 ## Verification
 

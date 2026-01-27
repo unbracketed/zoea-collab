@@ -66,7 +66,7 @@ class TestChatAgentService:
 
             mock_create.assert_called_once()
             assert service.agent_name == "ZoeaAssistant"
-            assert service.instructions == "You are a helpful AI assistant for Zoea Studio."
+            assert service.instructions == "You are a helpful AI assistant for Zoea Collab."
 
     @pytest.mark.asyncio
     async def test_chat_stream(self):
@@ -116,7 +116,7 @@ class TestSchemas:
 
         assert request.message == "Hello"
         assert request.agent_name == "ZoeaAssistant"
-        assert request.instructions == "You are a helpful AI assistant for Zoea Studio."
+        assert request.instructions == "You are a helpful AI assistant for Zoea Collab."
 
     def test_chat_request_empty_message_fails(self):
         """Test that empty message fails validation."""

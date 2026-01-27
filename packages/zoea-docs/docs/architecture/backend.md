@@ -1,6 +1,6 @@
 # Backend Architecture
 
-The Zoea Studio backend is a Django 6.0 application with django-ninja for REST APIs, integrated with provider-based LLM backends (OpenAI/Gemini) for AI capabilities.
+The Zoea Collab backend is a Django 6.0 application with django-ninja for REST APIs, integrated with provider-based LLM backends (OpenAI/Gemini) for AI capabilities.
 
 ## Technology Stack
 

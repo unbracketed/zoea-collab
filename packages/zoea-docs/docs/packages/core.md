@@ -20,6 +20,24 @@ uv sync
 
 ## Development
 
+### Running the Core Docker Stack
+
+The zoea-core Docker Compose file lives alongside the backend package:
+
+```bash
+cd packages/zoea-core
+docker compose --env-file ../../.env up --build
+```
+
+`ZOEA_CORE_BACKEND_PORT` controls the host port (default `8000`), and
+`ZOEA_CORE_BACKEND_COMMAND` can switch the server to Gunicorn.
+
+If you need to override the database URL used inside the stack, set:
+
+```bash
+export ZOEA_CORE_DATABASE_URL=postgresql://zoea:zoea@db:5432/zoea
+```
+
 ### Running the Development Server
 
 ```bash

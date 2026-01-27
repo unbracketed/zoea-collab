@@ -1,5 +1,5 @@
 """
-Custom django-allauth adapters for Zoea Studio.
+Custom django-allauth adapters for Zoea Collab.
 
 This module provides custom adapters that integrate django-allauth with our
 multi-tenant organization structure. When a new user signs up, we automatically

@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Zoea Studio is a Django + React application built on a multi-tenant architecture with AI agent integration and knowledge management capabilities.
+Zoea Collab is a Django + React application built on a multi-tenant architecture with AI agent integration and knowledge management capabilities.
 
 ## High-Level Architecture
 
@@ -50,7 +50,7 @@ Zoea Studio is a Django + React application built on a multi-tenant architecture
 
 ### 1. Multi-Tenant by Design
 
-Every resource in Zoea Studio is scoped to an **Organization**:
+Every resource in Zoea Collab is scoped to an **Organization**:
 
 ```python
 class Project(models.Model):

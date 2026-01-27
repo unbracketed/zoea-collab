@@ -1,10 +1,10 @@
 # Authentication System Setup and Development
 
-This guide covers the technical implementation of Zoea Studio's authentication system for developers who need to understand, modify, or extend the authentication functionality.
+This guide covers the technical implementation of Zoea Collab's authentication system for developers who need to understand, modify, or extend the authentication functionality.
 
 ## Overview
 
-Zoea Studio uses [django-allauth](https://docs.allauth.org/) for user registration and authentication, integrated with our multi-tenant organization system. The system provides:
+Zoea Collab uses [django-allauth](https://docs.allauth.org/) for user registration and authentication, integrated with our multi-tenant organization system. The system provides:
 
 - User registration with email verification
 - Username or email-based login
@@ -452,12 +452,12 @@ from django.contrib.sites.models import Site
 
 site = Site.objects.get(id=1)
 site.domain = 'localhost:8000'  # Development
-site.name = 'Zoea Studio (Development)'
+site.name = 'Zoea Collab (Development)'
 site.save()
 
 # For production:
 # site.domain = 'yourdomain.com'
-# site.name = 'Zoea Studio'
+# site.name = 'Zoea Collab'
 ```
 
 ## Development Workflow
@@ -484,11 +484,11 @@ In development mode, emails are printed to the console where you ran the Django 
 Look for output like:
 
 ```
-Subject: [Zoea Studio (Development)] Please Confirm Your Email Address
+Subject: [Zoea Collab (Development)] Please Confirm Your Email Address
 From: noreply@zoea.studio
 To: testuser@example.com
 
-Hello from Zoea Studio (Development)!
+Hello from Zoea Collab (Development)!
 
 Please confirm your email address by clicking on the link below:
 

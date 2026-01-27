@@ -1,1 +1,1 @@
-"""Zoea Studio CLI package."""
+"""Zoea Collab CLI package."""

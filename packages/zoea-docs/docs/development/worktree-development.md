@@ -11,7 +11,7 @@ Each worktree gets:
 - Unique ports for all services (frontend, backend, docs, postgres)
 - Independent data volumes
 
-This allows you to run multiple instances of Zoea Studio simultaneously, each on a different branch.
+This allows you to run multiple instances of Zoea Collab simultaneously, each on a different branch.
 
 ## Quick Start
 

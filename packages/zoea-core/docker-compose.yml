@@ -3,22 +3,15 @@
 
 name: zoea-core
 
+x-zoea-core-env-file: &zoea-core-env-file
+  - ../../.env
+
 x-zoea-core-env: &zoea-core-env
-  DEBUG: ${DEBUG:-True}
-  SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
-  ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
-  DATABASE_URL: ${DATABASE_URL:-postgresql://zoea:zoea@db:5432/zoea}
-  FILE_SEARCH_BACKEND: ${FILE_SEARCH_BACKEND:-chromadb}
+  # Use a dedicated env var so local host DATABASE_URL doesn't leak into Docker.
+  DATABASE_URL: ${ZOEA_CORE_DATABASE_URL:-postgresql://zoea:zoea@db:5432/zoea}
   CHROMADB_PERSIST_DIRECTORY: /app/chromadb
-  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-  OPENAI_CHAT_MODEL_ID: ${OPENAI_CHAT_MODEL_ID:-gpt-4o-mini}
-  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-  GEMINI_MODEL_ID: ${GEMINI_MODEL_ID:-gemini-2.5-flash}
-  DEFAULT_LLM_PROVIDER: ${DEFAULT_LLM_PROVIDER:-openai}
-  DEFAULT_LLM_MODEL: ${DEFAULT_LLM_MODEL:-gpt-4o-mini}
-  LOCAL_MODEL_ENDPOINT: ${LOCAL_MODEL_ENDPOINT:-}
-  ZOEA_INSTANCE: ${ZOEA_INSTANCE:-core}
   ZOEA_SKILLS_DIRS: /app/skills
+  ZOEA_INSTANCE: ${ZOEA_INSTANCE:-core}
 
 services:
   backend:
@@ -26,6 +19,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file: *zoea-core-env-file
     ports:
       - "${ZOEA_CORE_BACKEND_PORT:-8000}:8000"
     volumes:
@@ -36,9 +30,9 @@ services:
       - core-media:/app/media
       - core-chromadb:/app/chromadb
     environment: *zoea-core-env
-    # Set ZOEA_BACKEND_COMMAND to switch to gunicorn or other server.
-    # Example: ZOEA_BACKEND_COMMAND="uv run gunicorn zoea.wsgi:application --bind 0.0.0.0:8000 --workers 2"
-    command: ${ZOEA_BACKEND_COMMAND:-uv run python manage.py runserver 0.0.0.0:8000}
+    # Set ZOEA_CORE_BACKEND_COMMAND to switch to gunicorn or other server.
+    # Example: ZOEA_CORE_BACKEND_COMMAND="uv run gunicorn zoea.wsgi:application --bind 0.0.0.0:8000 --workers 2"
+    command: ${ZOEA_CORE_BACKEND_COMMAND:-uv run python manage.py runserver 0.0.0.0:8000}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
@@ -54,6 +48,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    env_file: *zoea-core-env-file
     volumes:
       - ./:/app
       - ../skills:/app/skills:ro
@@ -70,6 +65,7 @@ services:
   db:
     container_name: zoea-core-db
     image: postgres:16-alpine
+    env_file: *zoea-core-env-file
     ports:
       - "${ZOEA_CORE_POSTGRES_PORT:-5432}:5432"
     volumes:

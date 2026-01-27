@@ -9,7 +9,7 @@ services:
       context: ./packages/zoea-core
       dockerfile: Dockerfile
     ports:
-      - "${ZOEA_BACKEND_PORT:-8000}:8000"
+      - "${ZOEA_CORE_BACKEND_PORT:-8000}:8000"
     volumes:
       - ./packages/zoea-core:/app
       - ./skills:/app/skills:ro
@@ -122,7 +122,7 @@ services:
       - ./packages/zoea-studio:/app
       - /app/node_modules
     environment:
-      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:${ZOEA_BACKEND_PORT:-8000}}
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:${ZOEA_CORE_BACKEND_PORT:-8000}}
       - ZOEA_INSTANCE=${ZOEA_INSTANCE:-main}
     depends_on:
       - backend
@@ -132,7 +132,7 @@ services:
     container_name: zoea-${ZOEA_INSTANCE:-main}-db
     image: postgres:16-alpine
     ports:
-      - "${ZOEA_POSTGRES_PORT:-5432}:5432"
+      - "${ZOEA_CORE_POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     environment:

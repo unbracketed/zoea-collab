@@ -155,7 +155,7 @@ DEBUG=True
 ALLOWED_HOSTS=localhost,127.0.0.1
 
 # Optional: Port configuration (defaults shown)
-ZOEA_BACKEND_PORT=8000    # Django dev server port
+ZOEA_CORE_BACKEND_PORT=8000    # Django dev server port
 ZOEA_FRONTEND_PORT=5173   # Vite dev server port
 ```
 
@@ -163,7 +163,7 @@ ZOEA_FRONTEND_PORT=5173   # Vite dev server port
     You **must** provide a valid `OPENAI_API_KEY` for the chat functionality to work. Get your API key from [platform.openai.com](https://platform.openai.com/api-keys).
 
 !!! tip "Port Conflicts"
-    If ports 8000 or 5173 are already in use by other applications, you can change the `ZOEA_BACKEND_PORT` and `ZOEA_FRONTEND_PORT` values. The CORS configuration and API base URL will automatically adjust.
+    If ports 8000 or 5173 are already in use by other applications, you can change the `ZOEA_CORE_BACKEND_PORT` and `ZOEA_FRONTEND_PORT` values. The CORS configuration and API base URL will automatically adjust.
 
 ## Step 6: Run Database Migrations
 
